@@ -1,5 +1,11 @@
 # Talentra AI Interviewer (Monorepo)
 
+[![GitHub stars](https://img.shields.io/github/stars/Rajjoshi77/Talentra?style=for-the-badge&color=ffd700)](https://github.com/Rajjoshi77/Talentra/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/Rajjoshi77/Talentra?style=for-the-badge&color=808080)](https://github.com/Rajjoshi77/Talentra/network/members)
+[![CI Status](https://img.shields.io/github/actions/workflow/status/Rajjoshi77/Talentra/ci.yml?style=for-the-badge&label=Build%20Status)](https://github.com/Rajjoshi77/Talentra/actions)
+[![License](https://img.shields.io/badge/License-Proprietary-red?style=for-the-badge)](LICENSE)
+[![Engine](https://img.shields.io/badge/Bun-%3E%3D1.3-orange?style=for-the-badge&logo=bun)](https://bun.sh)
+
 Talentra is a technical AI interviewer dashboard. It analyzes a candidate's public GitHub repositories and conducts real-time verbal or text-based mock interviews tailored to their exact technology stack. It evaluates candidates across 5 weighted dimensions and generates rich technical scorecards.
 
 ---
