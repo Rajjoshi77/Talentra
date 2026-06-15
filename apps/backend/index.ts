@@ -7,6 +7,13 @@ import { prisma } from "./db";
 // Runtime debug: ensure DATABASE_URL is actually present when the server starts.
 console.log("[startup] DATABASE_URL:", process.env.DATABASE_URL);
 
+// Clone protection check: ensures unauthorized copies of the codebase cannot be run directly.
+if (process.env.APP_PASSCODE !== "Rajjoshi_Talentra_Secured_2026") {
+    console.error("\x1b[31m%s\x1b[0m", "[SECURITY ALERT] Unauthorized codebase copy or execution detected! Server startup halted.");
+    console.error("Please configure the correct APP_PASSCODE in your .env file to authorize this codebase.");
+    process.exit(1);
+}
+
 const app = express();
 
 
