@@ -17,6 +17,7 @@ model Interview{
   githubMetadata  Json
   status          InterviewStatus
   score           Int @default(0)
+  feedback        String?
   conversation  Message[]
 }
 
@@ -26,8 +27,7 @@ model Message{
   type MessageType
   interviewId String
   interview Interview @relation(fields: [interviewId],references: [id])
-
-
+  createdAt DateTime @default(now())
 }
 
 enum MessageType{

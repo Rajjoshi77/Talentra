@@ -2,7 +2,9 @@
   "name": "backend",
   "module": "index.ts",
   "type": "module",
-  "private": true,
+  "scripts": {
+    "test": "bun test"
+  },
   "devDependencies": {
     "@types/bun": "latest",
     "@types/cors": "^2.8.19",

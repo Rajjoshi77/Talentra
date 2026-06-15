@@ -1,159 +1,110 @@
-# Turborepo starter
+# Talentra AI Interviewer (Monorepo)
 
-This Turborepo starter is maintained by the Turborepo core team.
+Talentra is a technical AI interviewer dashboard. It analyzes a candidate's public GitHub repositories and conducts real-time verbal or text-based mock interviews tailored to their exact technology stack. It evaluates candidates across 5 weighted dimensions and generates rich technical scorecards.
 
-## Using this example
+---
 
-Run the following command:
+## 🚀 Key Features
 
-```sh
-npx create-turbo@latest
+* **GitHub Portfolio Scraper**: Automatically analyzes public repositories, star counts, and dominant languages.
+* **Dual Interview Session Modes**:
+  * **Real-time WebRTC Audio (Paid)**: Direct high-fidelity voice link with OpenAI Realtime API.
+  * **Interactive Voice/Text Sandbox (100% Free)**: Graceful fallback utilizing browser-native Speech Synthesis (voice output) and Speech Recognition (speech-to-text) if OpenAI quota limits are exceeded.
+* **Unified Multi-LLM Engine**: Dynamic failover support for:
+  1. **Google Gemini 1.5 Flash** (Free Tier - 15 requests/min)
+  2. **Groq Cloud** (Free Tier - Llama 3.3 / Llama 3.1)
+  3. **OpenRouter** (Free Tier - Llama 3.0 / Gemma)
+  4. **Local Ollama** (Fully Offline - Llama 3 / Qwen)
+  5. **OpenAI GPT-4o** (Paid)
+* **Structured Evaluation Scorecard**: Weighted performance analytics across 5 key metrics:
+  * *GitHub Portfolio Health* (20%)
+  * *Technical Depth & Accuracy* (30%)
+  * *Problem-Solving & System Design* (20%)
+  * *Testing & CI/CD Best Practices* (15%)
+  * *Verbal Communication & Professionalism* (15%)
+* **Sleek UI/UX**: Dark mode glassmorphic React dashboard with pulsing audio volume halo visualizers.
+
+---
+
+## 📁 Project Structure
+
+```text
+AI_Interviewer/
+├── apps/
+│   ├── backend/                # Express, Prisma ORM, and Bun Server
+│   │   ├── prisma/             # Schema definitions and database clients
+│   │   ├── scrapers/           # GitHub profile scraper
+│   │   ├── index.ts            # REST server routes & CallLLM routing logic
+│   │   ├── index.test.ts       # Backend unit test suites
+│   │   └── .env.example        # Environment variable template
+│   └── frontend/               # React (TSX) SPA UI Dashboard
+│       └── src/
+│           ├── components/     # UI Pages (Form, Interview Screen, Result Scorecard)
+│           └── lib/            # Configuration constants
+├── package.json                # Turborepo configurations
+└── README.md                   # Project documentation
 ```
 
-## What's inside?
+---
 
-This Turborepo includes the following packages/apps:
+## 🛠️ Quick Start & Installation
 
-### Apps and Packages
+### 1. Prerequisites
+Ensure you have [Bun](https://bun.sh) and [PostgreSQL](https://www.postgresql.org/) installed and active.
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+### 2. Database Setup
+Ensure a database named `ai_interviewer` is initialized on your local Postgres instance.
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+### 3. Clone & Install Dependencies
+```bash
+# Clone the repository
+git clone https://github.com/Rajjoshi77/Talentra.git
+cd AI_Interviewer
 
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+# Install all monorepo dependencies
+bun install
 ```
 
-Without global `turbo`, use your package manager:
+### 4. Configuration Setup
+Navigate to the backend app, copy the configuration template, and add your API credentials:
+```bash
+cd apps/backend
+cp .env.example .env
+```
+*Modify `.env` to include your Database Connection String and your preferred free API Keys (like `GROQ_API_KEY` or `GEMINI_API_KEY`).*
 
-```sh
-cd my-turborepo
-npx turbo build
-bun dlx turbo build
-bun exec turbo build
+### 5. Synchronize Schema
+Ensure database schemas match the Prisma configuration:
+```bash
+bunx prisma db push
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+### 6. Start Development Servers
+From the root workspace, run the following command to boot up both the frontend and backend servers:
+```bash
+bun run dev
+```
+* The **Frontend** will be served at `http://localhost:3000`
+* The **Backend** will be served at `http://localhost:3001`
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+---
 
-```sh
-turbo build --filter=docs
+## 🧪 Testing
+
+We use Bun's built-in high-performance test runner for unit testing backend helpers.
+
+### Run tests in backend:
+```bash
+cd apps/backend
+bun test
 ```
 
-Without global `turbo`:
-
-```sh
-npx turbo build --filter=docs
-bun exec turbo build --filter=docs
-bun exec turbo build --filter=docs
+### Run tests via Monorepo workspace (from root):
+```bash
+bun run test
 ```
 
-### Develop
+---
 
-To develop all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo dev
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo dev
-bun exec turbo dev
-bun exec turbo dev
-```
-
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo dev --filter=web
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-bun exec turbo dev --filter=web
-bun exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-bun exec turbo login
-bun exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-bun exec turbo link
-bun exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+## 📝 License
+Proprietary / Monorepo setup. Developed by Rajjoshi77.
