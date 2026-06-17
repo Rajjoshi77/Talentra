@@ -61,20 +61,17 @@ const Form = () => {
     setLoadingStep(0);
 
     try {
-      // Clean up GitHub URL if a full link is pasted
       let githubUrl = gitInput.trim();
       if (!githubUrl.startsWith("http")) {
         githubUrl = `https://github.com/${githubUrl}`;
       }
 
-      // LinkedIn is required by backend validation but not saved in database, so send a dummy value
       const response = await axios.post(`${BACKEND_URL}/api/v1/pre-interview`, {
         linkedIn: "https://linkedin.com/in/dummy-talentra",
         github: githubUrl
       });
 
       if (response.data && response.data.interviewId) {
-        // Allow the final steps to show slightly before navigating
         setTimeout(() => {
           navigate(`/interview/${response.data.interviewId}`);
         }, 1500);
@@ -91,14 +88,10 @@ const Form = () => {
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-radial from-slate-950 via-neutral-950 to-black text-slate-100 flex flex-col justify-center items-center font-sans p-4">
-      {/* Premium ambient light spots */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-1/4 left-1/3 -translate-x-1/2 w-[350px] h-[350px] bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
 
-      {/* Main Container */}
       <div className="relative z-10 w-full max-w-[480px] bg-neutral-900/60 backdrop-blur-2xl border border-white/10 rounded-2xl p-8 shadow-[0_0_50px_rgba(0,0,0,0.8)] transition-all duration-500">
-        
-        {/* Brand Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center p-3 bg-gradient-to-tr from-indigo-500 to-emerald-500 rounded-xl mb-4 shadow-lg shadow-indigo-500/20">
             <Sparkles className="h-7 w-7 text-white animate-pulse" />
@@ -112,7 +105,6 @@ const Form = () => {
         </div>
 
         {loading ? (
-          /* Loading Presentation State */
           <div className="flex flex-col items-center py-6 text-center space-y-5 animate-fade-in">
             <div className="relative flex items-center justify-center">
               <Loader2 className="h-16 w-16 text-indigo-500 animate-spin" />
@@ -135,7 +127,6 @@ const Form = () => {
             </div>
           </div>
         ) : (
-          /* Form Entry State */
           <form onSubmit={onSubmit} className="space-y-6">
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-300 flex items-center gap-1.5 px-0.5">
@@ -166,7 +157,6 @@ const Form = () => {
         )}
       </div>
 
-      {/* Footer Branding */}
       <div className="absolute bottom-6 text-slate-600 text-xs font-mono">
         Talentra Engine v1.0.0 • Powered by GPT-Realtime
       </div>

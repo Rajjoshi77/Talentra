@@ -1,116 +1,156 @@
-# Talentra AI Interviewer (Monorepo)
+# Talentra AI Interviewer
 
-[![GitHub stars](https://img.shields.io/github/stars/Rajjoshi77/Talentra?style=for-the-badge&color=ffd700)](https://github.com/Rajjoshi77/Talentra/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/Rajjoshi77/Talentra?style=for-the-badge&color=808080)](https://github.com/Rajjoshi77/Talentra/network/members)
-[![CI Status](https://img.shields.io/github/actions/workflow/status/Rajjoshi77/Talentra/ci.yml?style=for-the-badge&label=Build%20Status)](https://github.com/Rajjoshi77/Talentra/actions)
-[![License](https://img.shields.io/badge/License-Proprietary-red?style=for-the-badge)](LICENSE)
-[![Engine](https://img.shields.io/badge/Bun-%3E%3D1.3-orange?style=for-the-badge&logo=bun)](https://bun.sh)
+Talentra AI Interviewer is a full-stack technical interview platform that creates personalized mock interviews from a candidate's public GitHub profile. It combines repository analysis, real-time voice interaction, multi-provider LLM fallback, transcript capture, and structured performance evaluation in one monorepo.
 
-Talentra is a technical AI interviewer dashboard. It analyzes a candidate's public GitHub repositories and conducts real-time verbal or text-based mock interviews tailored to their exact technology stack. It evaluates candidates across 5 weighted dimensions and generates rich technical scorecards.
+## Highlights
 
----
+- GitHub-based interview personalization from public repository metadata.
+- Real-time voice interviews through the OpenAI Realtime API.
+- Offline-friendly mock mode using browser speech synthesis and speech recognition.
+- Multi-provider response generation with Gemini, Groq, OpenRouter, Ollama, and OpenAI fallback support.
+- Persistent interview transcripts and evaluation reports through Prisma.
+- Weighted scorecard covering code quality, technical depth, system design, testing, and communication.
+- React interview room with voice activity visualization and animated interviewer presence.
 
-## 🚀 Key Features
+## Tech Stack
 
-* **GitHub Portfolio Scraper**: Automatically analyzes public repositories, star counts, and dominant languages.
-* **Dual Interview Session Modes**:
-  * **Real-time WebRTC Audio (Paid)**: Direct high-fidelity voice link with OpenAI Realtime API.
-  * **Interactive Voice/Text Sandbox (100% Free)**: Graceful fallback utilizing browser-native Speech Synthesis (voice output) and Speech Recognition (speech-to-text) if OpenAI quota limits are exceeded.
-* **Unified Multi-LLM Engine**: Dynamic failover support for:
-  1. **Google Gemini 1.5 Flash** (Free Tier - 15 requests/min)
-  2. **Groq Cloud** (Free Tier - Llama 3.3 / Llama 3.1)
-  3. **OpenRouter** (Free Tier - Llama 3.0 / Gemma)
-  4. **Local Ollama** (Fully Offline - Llama 3 / Qwen)
-  5. **OpenAI GPT-4o** (Paid)
-* **Structured Evaluation Scorecard**: Weighted performance analytics across 5 key metrics:
-  * *GitHub Portfolio Health* (20%)
-  * *Technical Depth & Accuracy* (30%)
-  * *Problem-Solving & System Design* (20%)
-  * *Testing & CI/CD Best Practices* (15%)
-  * *Verbal Communication & Professionalism* (15%)
-* **Sleek UI/UX**: Dark mode glassmorphic React dashboard with pulsing audio volume halo visualizers.
+- Runtime and package manager: Bun
+- Monorepo orchestration: Turborepo
+- Frontend: React, TypeScript, Tailwind CSS, shadcn-style UI primitives
+- Backend: Express, TypeScript, Prisma
+- Database: PostgreSQL
+- AI providers: OpenAI Realtime, OpenAI Chat Completions, Gemini, Groq, OpenRouter, Ollama
 
----
-
-## 📁 Project Structure
+## Repository Structure
 
 ```text
 AI_Interviewer/
 ├── apps/
-│   ├── backend/                # Express, Prisma ORM, and Bun Server
-│   │   ├── prisma/             # Schema definitions and database clients
-│   │   ├── scrapers/           # GitHub profile scraper
-│   │   ├── index.ts            # REST server routes & CallLLM routing logic
-│   │   ├── index.test.ts       # Backend unit test suites
-│   │   └── .env.example        # Environment variable template
-│   └── frontend/               # React (TSX) SPA UI Dashboard
-│       └── src/
-│           ├── components/     # UI Pages (Form, Interview Screen, Result Scorecard)
-│           └── lib/            # Configuration constants
-├── package.json                # Turborepo configurations
-└── README.md                   # Project documentation
+│   ├── backend/
+│   │   ├── generated/          # Generated Prisma client
+│   │   ├── prisma/             # Prisma schema and migrations
+│   │   ├── scrapers/           # GitHub metadata scraper
+│   │   ├── db.ts               # Prisma database client
+│   │   ├── index.ts            # API server and interview workflow
+│   │   └── types.ts            # Request validation schemas
+│   ├── frontend/
+│   │   ├── src/
+│   │   │   ├── components/     # Form, interview, result, and UI components
+│   │   │   └── lib/            # Shared frontend configuration
+│   │   └── build.ts            # Bun frontend build script
+│   ├── docs/                   # Documentation app scaffold
+│   └── web/                    # Web app scaffold
+├── packages/                   # Shared configuration and UI package workspace
+├── package.json
+├── turbo.json
+└── README.md
 ```
 
----
+## Prerequisites
 
-## 🛠️ Quick Start & Installation
+- Bun 1.3 or newer
+- PostgreSQL database
+- At least one supported LLM provider key for dynamic interview generation
+- OpenAI API key for real-time voice interviews
 
-### 1. Prerequisites
-Ensure you have [Bun](https://bun.sh) and [PostgreSQL](https://www.postgresql.org/) installed and active.
+The application can still run in fallback paths when some providers are not configured, but the best experience requires both database access and at least one LLM provider.
 
-### 2. Database Setup
-Ensure a database named `ai_interviewer` is initialized on your local Postgres instance.
+## Environment Variables
 
-### 3. Clone & Install Dependencies
+Create `apps/backend/.env` and configure the values you need:
+
+```env
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE"
+APP_PASSCODE="Rajjoshi_Talentra_Secured_2026"
+
+OPENAI_KEY=""
+GEMINI_API_KEY=""
+GROQ_API_KEY=""
+OPENROUTER_API_KEY=""
+
+OLLAMA_BASE_URL="http://localhost:11434"
+OLLAMA_MODEL=""
+```
+
+`APP_PASSCODE` is required by the backend startup guard. `OPENAI_KEY` is required for the real-time WebRTC voice session. The other AI keys are optional fallback providers for text interview generation and evaluation.
+
+## Setup
+
+Install dependencies from the repository root:
+
 ```bash
-# Clone the repository
-git clone https://github.com/Rajjoshi77/Talentra.git
-cd AI_Interviewer
-
-# Install all monorepo dependencies
 bun install
 ```
 
-### 4. Configuration Setup
-Navigate to the backend app, copy the configuration template, and add your API credentials:
+Prepare the database:
+
 ```bash
 cd apps/backend
-cp .env.example .env
-```
-*Modify `.env` to include your Database Connection String and your preferred free API Keys (like `GROQ_API_KEY` or `GEMINI_API_KEY`).*
-
-### 5. Synchronize Schema
-Ensure database schemas match the Prisma configuration:
-```bash
 bunx prisma db push
 ```
 
-### 6. Start Development Servers
-From the root workspace, run the following command to boot up both the frontend and backend servers:
+Start the full development workspace:
+
 ```bash
+cd ../..
 bun run dev
 ```
-* The **Frontend** will be served at `http://localhost:3000`
-* The **Backend** will be served at `http://localhost:3001`
 
----
+Default local services:
 
-## 🧪 Testing
+- Frontend: `http://localhost:3000`
+- Backend: `http://localhost:3001`
 
-We use Bun's built-in high-performance test runner for unit testing backend helpers.
+## Common Commands
 
-### Run tests in backend:
+```bash
+bun run dev
+bun run build
+bun run test
+bun run check-types
+```
+
+Run the frontend directly:
+
+```bash
+cd apps/frontend
+bun run dev
+bun run build
+```
+
+Run backend tests:
+
 ```bash
 cd apps/backend
 bun test
 ```
 
-### Run tests via Monorepo workspace (from root):
-```bash
-bun run test
-```
+## Interview Flow
 
----
+1. The candidate enters a GitHub username or profile URL.
+2. The backend scrapes public repository metadata and creates an interview record.
+3. The interview room starts a WebRTC voice session when OpenAI Realtime is available.
+4. If real-time audio cannot start, the app falls back to mock mode with browser-native speech.
+5. Responses are stored as transcript messages.
+6. The evaluation endpoint creates a structured report and scorecard from the transcript and repository metadata.
 
-## 📝 License
-Proprietary / Monorepo setup. Developed by Rajjoshi77.
+## Evaluation Model
+
+The scorecard is organized around five weighted dimensions:
+
+- GitHub code quality and portfolio: 20%
+- Technical depth and accuracy: 30%
+- Problem solving and system design: 20%
+- Testing, automation, and CI/CD: 15%
+- Verbal communication and professionalism: 15%
+
+## Development Notes
+
+- Keep generated files and unrelated workspace scaffolds out of feature changes unless they are required.
+- Prefer focused changes in `apps/frontend/src/components` and `apps/backend/index.ts` for interview behavior.
+- Avoid logging sensitive environment values, SDP payloads, or provider responses in production paths.
+- Regenerate or push Prisma schema changes whenever the database model changes.
+
+## License
+
+This project is proprietary. See [LICENSE](LICENSE) for details.

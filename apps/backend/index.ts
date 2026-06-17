@@ -4,10 +4,6 @@ import { PreInterviewBody } from "./types";
 import { scrapeGithub } from "./scrapers/github";
 import { prisma } from "./db";
 
-// Runtime debug: ensure DATABASE_URL is actually present when the server starts.
-console.log("[startup] DATABASE_URL:", process.env.DATABASE_URL);
-
-// Clone protection check: ensures unauthorized copies of the codebase cannot be run directly.
 if (process.env.APP_PASSCODE !== "Rajjoshi_Talentra_Secured_2026") {
     console.error("\x1b[31m%s\x1b[0m", "[SECURITY ALERT] Unauthorized codebase copy or execution detected! Server startup halted.");
     console.error("Please configure the correct APP_PASSCODE in your .env file to authorize this codebase.");
@@ -16,21 +12,12 @@ if (process.env.APP_PASSCODE !== "Rajjoshi_Talentra_Secured_2026") {
 
 const app = express();
 
-
 app.use(express.text({ type: ["application/sdp", "text/plain"] }));
 app.use(express.json());
 app.use(cors());
 
-/*
-|--------------------------------------------------------------------------
-| PRE INTERVIEW
-|--------------------------------------------------------------------------
-*/
-
 app.post("/api/v1/pre-interview", async (req, res) => {
     try {
-        console.log("BODY:", req.body);
-
         const { success, data } = PreInterviewBody.safeParse(req.body);
 
         if (!success) {
@@ -39,21 +26,14 @@ app.post("/api/v1/pre-interview", async (req, res) => {
             });
         }
 
-        console.log("GitHub URL:", data.github);
-
         const githubUsername = data.github.split("/").pop()!;
-
-        console.log("Username:", githubUsername);
         const GitHubData = await scrapeGithub(githubUsername);
-        console.log("Repos fetched:", GitHubData.length);
         const interview = await prisma.interview.create({
             data: {
                 githubMetadata: JSON.stringify(GitHubData),
                 status: "Pre",
             },
         });
-
-        console.log("Interview Created:", interview.id);
 
         return res.status(200).json({
             success: true,
@@ -69,12 +49,6 @@ app.post("/api/v1/pre-interview", async (req, res) => {
     }
 });
 
-/*
-|--------------------------------------------------------------------------
-| REALTIME SESSION
-|--------------------------------------------------------------------------
-*/
-
 app.post("/api/v1/session", async (req, res) => {
     try {
         const sessionConfig = JSON.stringify({
@@ -82,7 +56,7 @@ app.post("/api/v1/session", async (req, res) => {
             model: "gpt-4o-realtime-preview-2024-12-17",
             audio: {
                 output: {
-                    voice: "marin",
+                    voice: "echo",
                 },
             },
             input_audio_transcription: {
@@ -109,9 +83,6 @@ app.post("/api/v1/session", async (req, res) => {
         
         const sdp = await response.text();
 
-        console.log("OPENAI RESPONSE:");
-        console.log(sdp);
-
         return res.send(sdp);
     } catch (error) {
         console.error("Session Error:", error);
@@ -121,12 +92,6 @@ app.post("/api/v1/session", async (req, res) => {
         });
     }
 });
-
-/*
-|--------------------------------------------------------------------------
-| INTERVIEW DETAILS, MESSAGES, AND EVALUATION
-|--------------------------------------------------------------------------
-*/
 
 app.get("/api/v1/interview/:interviewId", async (req, res) => {
     try {
@@ -164,7 +129,6 @@ app.post("/api/v1/interview/:interviewId/message", async (req, res) => {
             },
         });
 
-        // Update status to InProgress if it was Pre
         await prisma.interview.updateMany({
             where: { id: interviewId, status: "Pre" },
             data: { status: "InProgress" },
@@ -187,7 +151,6 @@ export const getTimeoutSignal = (ms: number) => {
 export function cleanJsonResponse(raw: string): string {
     let text = raw.trim();
     if (text.startsWith("```")) {
-        // Remove markdown block wrapper
         text = text.replace(/^```[a-zA-Z]*\n?/, "");
         text = text.replace(/\n?```$/, "");
     }
@@ -195,7 +158,6 @@ export function cleanJsonResponse(raw: string): string {
 }
 
 async function callLLM(systemPrompt: string, userPrompt: string, isJson: boolean = false): Promise<string> {
-    // 1. Try Gemini (Google AI Studio - free tier, high quality) if key is provided
     if (process.env.GEMINI_API_KEY) {
         console.log("Calling Gemini 1.5 Flash...");
         try {
@@ -230,7 +192,6 @@ async function callLLM(systemPrompt: string, userPrompt: string, isJson: boolean
         }
     }
 
-    // 2. Try Groq (extremely fast free tier) if key is provided
     if (process.env.GROQ_API_KEY) {
         console.log("Calling Groq...");
         try {
@@ -263,7 +224,6 @@ async function callLLM(systemPrompt: string, userPrompt: string, isJson: boolean
         }
     }
 
-    // 3. Try OpenRouter (supports free models) if key is provided
     if (process.env.OPENROUTER_API_KEY) {
         console.log("Calling OpenRouter...");
         try {
@@ -296,7 +256,6 @@ async function callLLM(systemPrompt: string, userPrompt: string, isJson: boolean
         }
     }
 
-    // 4. Try Ollama (completely local and free) if active/configured
     const ollamaBaseUrl = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
     try {
         console.log(`Checking local Ollama at ${ollamaBaseUrl}...`);
@@ -339,7 +298,6 @@ async function callLLM(systemPrompt: string, userPrompt: string, isJson: boolean
         console.log("Ollama offline or not running (skipping local LLM check).");
     }
 
-    // 5. Try OpenAI (standard/fallback)
     if (process.env.OPENAI_KEY && !process.env.OPENAI_KEY.startsWith("dummy")) {
         console.log("Calling OpenAI GPT-4o...");
         try {
@@ -409,7 +367,6 @@ Please generate the interviewer's next response:
 
         let reply = await callLLM(systemPrompt, userPrompt, false);
 
-        // Static fallback if all APIs fail
         if (!reply) {
             console.log("Using static question fallback for chat...");
             const qIndex = messages.filter((m: any) => m.type === "Assistant").length;
@@ -424,7 +381,6 @@ Please generate the interviewer's next response:
 
         reply = reply.trim();
 
-        // Save reply message in DB
         await prisma.message.create({
             data: {
                 interviewId,
@@ -521,7 +477,6 @@ ${interview.conversation.map((m: any) => `${m.type}: ${m.message}`).join("\n")}
     } catch (error) {
         console.error("Evaluation API Error, using custom local feedback compiler:", error);
         
-        // Local feedback fallback generator!
         let repos: any[] = [];
         try {
             repos = typeof interview.githubMetadata === "string" 
@@ -534,14 +489,12 @@ ${interview.conversation.map((m: any) => `${m.type}: ${m.message}`).join("\n")}
         const repoCount = repos.length || 0;
         const msgCount = interview.conversation.length || 0;
 
-        // Calculate a realistic technical score
         let score = 75;
         if (repoCount > 10) score += 10;
         else if (repoCount > 3) score += 5;
         if (msgCount > 6) score += 5;
         score = Math.min(score, 98);
 
-        // Extract primary languages
         const languagesMap: Record<string, number> = {};
         repos.forEach((r: any) => {
             if (r.language) {
@@ -573,7 +526,7 @@ This scorecard was compiled based on your GitHub portfolio metadata and session 
 
 ### 4. Testing, Automation & CI/CD (15% Weight)
 - **Test Suite Presence**: Basic testing layout noticed; however, explicitly configured test suites (Jest, Cypress, Playwright) should be expanded.
-- **Workflow Automation**: Recommending deployment pipelines (`.github/workflows`) to automate verification checks.
+- **Workflow Automation**: Recommending deployment pipelines (.github/workflows) to automate verification checks.
 
 ### 5. Verbal Communication & Professionalism (15% Weight)
 - **Explanations**: Clear, focused responses during the sandbox simulation.
