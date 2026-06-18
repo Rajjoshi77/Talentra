@@ -25,25 +25,25 @@ Talentra AI Interviewer is a full-stack technical interview platform that create
 
 ```text
 AI_Interviewer/
-├── apps/
-│   ├── backend/
-│   │   ├── generated/          # Generated Prisma client
-│   │   ├── prisma/             # Prisma schema and migrations
-│   │   ├── scrapers/           # GitHub metadata scraper
-│   │   ├── db.ts               # Prisma database client
-│   │   ├── index.ts            # API server and interview workflow
-│   │   └── types.ts            # Request validation schemas
-│   ├── frontend/
-│   │   ├── src/
-│   │   │   ├── components/     # Form, interview, result, and UI components
-│   │   │   └── lib/            # Shared frontend configuration
-│   │   └── build.ts            # Bun frontend build script
-│   ├── docs/                   # Documentation app scaffold
-│   └── web/                    # Web app scaffold
-├── packages/                   # Shared configuration and UI package workspace
-├── package.json
-├── turbo.json
-└── README.md
+|-- apps/
+|   |-- backend/
+|   |   |-- generated/          # Generated Prisma client
+|   |   |-- prisma/             # Prisma schema and migrations
+|   |   |-- scrapers/           # GitHub metadata scraper
+|   |   |-- db.ts               # Prisma database client
+|   |   |-- index.ts            # API server and interview workflow
+|   |   `-- types.ts            # Request validation schemas
+|   |-- frontend/
+|   |   |-- src/
+|   |   |   |-- components/     # Form, interview, result, and UI components
+|   |   |   `-- lib/            # Shared frontend configuration
+|   |   `-- build.ts            # Bun frontend build script
+|   |-- docs/                   # Documentation app scaffold
+|   `-- web/                    # Web app scaffold
+|-- packages/                   # Shared configuration and UI package workspace
+|-- package.json
+|-- turbo.json
+`-- README.md
 ```
 
 ## Prerequisites
@@ -70,6 +70,12 @@ OPENROUTER_API_KEY=""
 
 OLLAMA_BASE_URL="http://localhost:11434"
 OLLAMA_MODEL=""
+```
+
+Set this variable for deployed frontend builds:
+
+```env
+BACKEND_URL="https://your-backend-domain.example.com"
 ```
 
 `APP_PASSCODE` is required by the backend startup guard. `OPENAI_KEY` is required for the real-time WebRTC voice session. The other AI keys are optional fallback providers for text interview generation and evaluation.
@@ -128,11 +134,12 @@ bun test
 ## Interview Flow
 
 1. The candidate enters a GitHub username or profile URL.
-2. The backend scrapes public repository metadata and creates an interview record.
-3. The interview room starts a WebRTC voice session when OpenAI Realtime is available.
-4. If real-time audio cannot start, the app falls back to mock mode with browser-native speech.
-5. Responses are stored as transcript messages.
-6. The evaluation endpoint creates a structured report and scorecard from the transcript and repository metadata.
+2. The backend normalizes the GitHub input and scrapes public repository metadata.
+3. The backend creates an interview record.
+4. The interview room starts a WebRTC voice session when OpenAI Realtime is available.
+5. If real-time audio cannot start, the app falls back to mock mode with browser-native speech.
+6. Responses are stored as transcript messages.
+7. The evaluation endpoint creates a structured report and scorecard from the transcript and repository metadata.
 
 ## Evaluation Model
 
@@ -143,6 +150,14 @@ The scorecard is organized around five weighted dimensions:
 - Problem solving and system design: 20%
 - Testing, automation, and CI/CD: 15%
 - Verbal communication and professionalism: 15%
+
+## Deployment Notes
+
+- Set `BACKEND_URL` during the frontend build so deployed clients do not call `localhost`.
+- Configure `APP_PASSCODE` in the backend environment before starting the server.
+- Configure `OPENAI_KEY` for real-time voice mode.
+- Proxy variables are optional; the GitHub scraper only enables proxy mode when all proxy settings are present.
+- GitHub profile inputs may be provided as usernames, `github.com/user`, or full profile URLs.
 
 ## Development Notes
 

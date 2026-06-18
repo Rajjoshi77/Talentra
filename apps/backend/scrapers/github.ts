@@ -1,19 +1,28 @@
 import axios from "axios";
 
 export async function scrapeGithub(username: string) {
+  const proxyConfigured = Boolean(
+    process.env.PROXY_HOST &&
+    process.env.PROXY_PORT &&
+    process.env.PROXY_USERNAME &&
+    process.env.PROXY_PASSWORD,
+  );
+
   const userRepoInfo = await axios.get(
-    `https://api.github.com/users/${username}/repos`,
-    {
-      proxy: {
-        protocol: "http",
-        host: process.env.PROXY_HOST!,
-        port: Number(process.env.PROXY_PORT!),
-        auth: {
-          username: process.env.PROXY_USERNAME!,
-          password: process.env.PROXY_PASSWORD!,
-        },
-      },
-    }
+    `https://api.github.com/users/${encodeURIComponent(username)}/repos`,
+    proxyConfigured
+      ? {
+          proxy: {
+            protocol: "http",
+            host: process.env.PROXY_HOST!,
+            port: Number(process.env.PROXY_PORT!),
+            auth: {
+              username: process.env.PROXY_USERNAME!,
+              password: process.env.PROXY_PASSWORD!,
+            },
+          },
+        }
+      : undefined,
   );
 
   return userRepoInfo.data.map((repo: any) => ({

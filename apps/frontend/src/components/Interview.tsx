@@ -1,13 +1,21 @@
-import { useEffect, useRef, useState } from "react"
-import { useParams, useNavigate } from "react-router"
-import { BACKEND_URL } from "@/lib/config"
-import { Button } from "./ui/button"
+import { useEffect, useRef, useState } from "react";
+import { useParams, useNavigate } from "react-router";
+import { BACKEND_URL } from "@/lib/config";
+import { Button } from "./ui/button";
 import {
-  Mic, MicOff, PhoneOff, Terminal, Volume2,
-  HelpCircle, User as UserIcon, Laptop, ShieldCheck, Radio
-} from "lucide-react"
-import { toast } from "sonner"
-import axios from "axios"
+  Mic,
+  MicOff,
+  PhoneOff,
+  Terminal,
+  Volume2,
+  HelpCircle,
+  User as UserIcon,
+  Laptop,
+  ShieldCheck,
+  Radio,
+} from "lucide-react";
+import { toast } from "sonner";
+import axios from "axios";
 
 interface MessageLog {
   id: string;
@@ -32,8 +40,10 @@ export default function Interview() {
   const { interviewId } = useParams();
   const navigate = useNavigate();
   const audioRef = useRef<HTMLAudioElement>(null);
-  
-  const [status, setStatus] = useState<"connecting" | "active" | "ended">("connecting");
+
+  const [status, setStatus] = useState<"connecting" | "active" | "ended">(
+    "connecting",
+  );
   const [isMuted, setIsMuted] = useState(false);
   const [transcripts, setTranscripts] = useState<MessageLog[]>([]);
   const [activeAiDelta, setActiveAiDelta] = useState("");
@@ -79,7 +89,8 @@ export default function Interview() {
         const pc = new RTCPeerConnection();
         pcRef.current = pc;
 
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        const AudioContextClass =
+          window.AudioContext || (window as any).webkitAudioContext;
         const audioCtx = new AudioContextClass();
         audioCtxRef.current = audioCtx;
 
@@ -116,13 +127,15 @@ export default function Interview() {
 
         dc.addEventListener("open", () => {
           setStatus("active");
-          toast.success("Voice channel connected! The interviewer is listening.");
+          toast.success(
+            "Voice channel connected! The interviewer is listening.",
+          );
         });
 
         dc.addEventListener("message", async (event) => {
           try {
             const data = JSON.parse(event.data);
-            
+
             if (data.type === "response.audio_transcript.delta") {
               setActiveAiDelta((prev) => prev + data.delta);
             }
@@ -136,7 +149,10 @@ export default function Interview() {
               }
             }
 
-            if (data.type === "conversation.item.input_audio_transcription.completed") {
+            if (
+              data.type ===
+              "conversation.item.input_audio_transcription.completed"
+            ) {
               const text = data.transcript;
               if (text && text.trim()) {
                 appendTranscript("User", text);
@@ -167,7 +183,11 @@ export default function Interview() {
         if (!answerText.trim().startsWith("v=")) {
           try {
             const errObj = JSON.parse(answerText);
-            throw new Error(errObj.error?.message || errObj.message || "Invalid Session SDP from server");
+            throw new Error(
+              errObj.error?.message ||
+                errObj.message ||
+                "Invalid Session SDP from server",
+            );
           } catch (e) {
             throw new Error("Invalid SDP response format");
           }
@@ -212,7 +232,10 @@ export default function Interview() {
               const scale = 1 + (aiVol / 200) * 0.4;
               const glowSize = Math.max(10, aiVol * 0.45);
               aiAvatar.style.transform = `scale(${scale})`;
-              aiAvatar.style.setProperty("--speech-level", Math.min(aiVol / 120, 1).toFixed(2));
+              aiAvatar.style.setProperty(
+                "--speech-level",
+                Math.min(aiVol / 120, 1).toFixed(2),
+              );
               aiHalo.style.boxShadow = `0 0 ${glowSize}px rgba(99, 102, 241, ${aiVol / 120})`;
               aiHalo.style.borderColor = `rgba(99, 102, 241, ${0.1 + aiVol / 200})`;
             }
@@ -223,9 +246,11 @@ export default function Interview() {
         };
 
         animationFrameRef.current = requestAnimationFrame(updateFrame);
-
       } catch (err: any) {
-        console.error("Interview setup failure, running in mock fallback:", err);
+        console.error(
+          "Interview setup failure, running in mock fallback:",
+          err,
+        );
         startMockInterview();
       }
     };
@@ -233,9 +258,10 @@ export default function Interview() {
     startSession();
 
     return () => {
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (animationFrameRef.current)
+        cancelAnimationFrame(animationFrameRef.current);
       if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach(track => track.stop());
+        localStreamRef.current.getTracks().forEach((track) => track.stop());
       }
       if (pcRef.current) pcRef.current.close();
       if (audioCtxRef.current) audioCtxRef.current.close();
@@ -244,7 +270,7 @@ export default function Interview() {
           recognitionRef.current.abort();
         } catch (e) {}
       }
-      if ('speechSynthesis' in window) {
+      if ("speechSynthesis" in window) {
         window.speechSynthesis.cancel();
       }
     };
@@ -253,19 +279,25 @@ export default function Interview() {
   const startMockInterview = async () => {
     setIsMockMode(true);
     setStatus("active");
-    toast.info("OpenAI WebRTC offline. Running in dynamic Gemini/Local mock interview sandbox.", { duration: 6000 });
+    toast.info(
+      "OpenAI WebRTC offline. Running in dynamic Gemini/Local mock interview sandbox.",
+      { duration: 6000 },
+    );
 
     try {
       if (!localStreamRef.current) {
         const ms = await navigator.mediaDevices.getUserMedia({ audio: true });
         localStreamRef.current = ms;
       }
-      
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+
+      const AudioContextClass =
+        window.AudioContext || (window as any).webkitAudioContext;
       const audioCtx = audioCtxRef.current || new AudioContextClass();
       audioCtxRef.current = audioCtx;
 
-      const userSource = audioCtx.createMediaStreamSource(localStreamRef.current);
+      const userSource = audioCtx.createMediaStreamSource(
+        localStreamRef.current,
+      );
       const userAnalyser = audioCtx.createAnalyser();
       userAnalyser.fftSize = 32;
       userSource.connect(userAnalyser);
@@ -292,7 +324,10 @@ export default function Interview() {
       };
       animationFrameRef.current = requestAnimationFrame(updateFrame);
     } catch (e) {
-      console.warn("Could not capture local audio stream for local volume pulsing", e);
+      console.warn(
+        "Could not capture local audio stream for local volume pulsing",
+        e,
+      );
     }
 
     setTimeout(() => {
@@ -301,19 +336,25 @@ export default function Interview() {
   };
 
   const speakOfflineText = (text: string, onEnd: () => void) => {
-    if ('speechSynthesis' in window) {
+    if ("speechSynthesis" in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 0.92;
       utterance.pitch = 0.82;
-      
+
       const voices = window.speechSynthesis.getVoices();
-      const englishVoice = voices.find(v =>
-        v.lang.startsWith("en") &&
-        MALE_VOICE_NAMES.some(name => v.name.toLowerCase().includes(name))
-      ) ||
-                           voices.find(v => v.lang.startsWith("en") && v.name.includes("Natural")) ||
-                           voices.find(v => v.lang.startsWith("en"));
+      const englishVoice =
+        voices.find(
+          (v) =>
+            v.lang.startsWith("en") &&
+            MALE_VOICE_NAMES.some((name) =>
+              v.name.toLowerCase().includes(name),
+            ),
+        ) ||
+        voices.find(
+          (v) => v.lang.startsWith("en") && v.name.includes("Natural"),
+        ) ||
+        voices.find((v) => v.lang.startsWith("en"));
       if (englishVoice) {
         utterance.voice = englishVoice;
       }
@@ -321,7 +362,7 @@ export default function Interview() {
       utterance.onend = () => {
         onEnd();
       };
-      
+
       utterance.onerror = (e) => {
         console.error("Speech Synthesis Error:", e);
         onEnd();
@@ -336,19 +377,21 @@ export default function Interview() {
   const fetchNextAiQuestion = async () => {
     setAiIsSpeaking(true);
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/v1/interview/${interviewId}/chat`);
+      const response = await axios.post(
+        `${BACKEND_URL}/api/v1/interview/${interviewId}/chat`,
+      );
       if (response.data && response.data.success) {
         const fullText = response.data.message;
 
         let displayedText = "";
         let animationDone = false;
-        
+
         const runTypingAnimation = async () => {
           for (let i = 0; i < fullText.length; i++) {
             if (animationDone) break;
             displayedText += fullText[i];
             setActiveAiDelta(displayedText);
-            await new Promise(r => setTimeout(r, 20 + Math.random() * 10));
+            await new Promise((r) => setTimeout(r, 20 + Math.random() * 10));
           }
           if (!animationDone) {
             setActiveAiDelta(fullText);
@@ -362,7 +405,10 @@ export default function Interview() {
           const aiAvatar = aiAvatarRef.current;
           if (aiHalo && aiAvatar) {
             aiAvatar.style.transform = `scale(${1 + (aiVol / 200) * 0.4})`;
-            aiAvatar.style.setProperty("--speech-level", Math.min(aiVol / 120, 1).toFixed(2));
+            aiAvatar.style.setProperty(
+              "--speech-level",
+              Math.min(aiVol / 120, 1).toFixed(2),
+            );
             aiHalo.style.boxShadow = `0 0 ${aiVol * 0.45}px rgba(99, 102, 241, ${aiVol / 120})`;
             aiHalo.style.borderColor = `rgba(99, 102, 241, ${0.1 + aiVol / 200})`;
           }
@@ -387,7 +433,10 @@ export default function Interview() {
 
           appendTranscript("Assistant", fullText);
 
-          if (!fullText.toLowerCase().includes("end & review") && !fullText.toLowerCase().includes("click 'end & review'")) {
+          if (
+            !fullText.toLowerCase().includes("end & review") &&
+            !fullText.toLowerCase().includes("click 'end & review'")
+          ) {
             startUserListening();
           }
         });
@@ -405,7 +454,9 @@ export default function Interview() {
       } catch (e) {}
     }
 
-    const SpeechLib = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechLib =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
     if (SpeechLib) {
       const rec = new SpeechLib();
       recognitionRef.current = rec;
@@ -461,7 +512,9 @@ export default function Interview() {
       if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled;
         setIsMuted(!audioTrack.enabled);
-        toast.info(audioTrack.enabled ? "Microphone active" : "Microphone muted");
+        toast.info(
+          audioTrack.enabled ? "Microphone active" : "Microphone muted",
+        );
       }
     }
   };
@@ -469,16 +522,22 @@ export default function Interview() {
   const appendTranscript = (type: "User" | "Assistant", message: string) => {
     setTranscripts((prev) => [
       ...prev,
-      { id: Math.random().toString(), type, message }
+      { id: Math.random().toString(), type, message },
     ]);
   };
 
-  const saveMessageToDatabase = async (type: "User" | "Assistant", message: string) => {
+  const saveMessageToDatabase = async (
+    type: "User" | "Assistant",
+    message: string,
+  ) => {
     try {
-      await axios.post(`${BACKEND_URL}/api/v1/interview/${interviewId}/message`, {
-        type,
-        message
-      });
+      await axios.post(
+        `${BACKEND_URL}/api/v1/interview/${interviewId}/message`,
+        {
+          type,
+          message,
+        },
+      );
     } catch (error) {
       console.error("Failed to persist message in DB:", error);
     }
@@ -486,9 +545,9 @@ export default function Interview() {
 
   const endInterview = async () => {
     setStatus("ended");
-    
+
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => track.stop());
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
     }
     if (pcRef.current) {
       pcRef.current.close();
@@ -498,7 +557,7 @@ export default function Interview() {
         recognitionRef.current.abort();
       } catch (e) {}
     }
-    if ('speechSynthesis' in window) {
+    if ("speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
 
@@ -508,15 +567,18 @@ export default function Interview() {
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-radial from-neutral-950 via-zinc-950 to-black text-slate-100 flex flex-col font-sans">
-      
       <div className="absolute top-10 left-10 w-[300px] h-[300px] bg-indigo-500/5 rounded-full blur-[90px] pointer-events-none" />
       <div className="absolute bottom-10 right-10 w-[300px] h-[300px] bg-emerald-500/5 rounded-full blur-[90px] pointer-events-none" />
 
       <header className="relative z-10 border-b border-white/5 bg-neutral-900/40 backdrop-blur-md px-8 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className={`h-2 w-2 rounded-full ${isMockMode ? 'bg-indigo-500' : 'bg-emerald-500'} animate-pulse`} />
+          <div
+            className={`h-2 w-2 rounded-full ${isMockMode ? "bg-indigo-500" : "bg-emerald-500"} animate-pulse`}
+          />
           <span className="font-mono text-xs text-slate-400 tracking-wider uppercase">
-            {isMockMode ? "Sandbox Session: Mock Mode" : "Sandbox Session: Active"}
+            {isMockMode
+              ? "Sandbox Session: Mock Mode"
+              : "Sandbox Session: Active"}
           </span>
         </div>
         <div className="flex items-center gap-2 bg-neutral-950/60 border border-white/5 px-3 py-1.5 rounded-lg text-slate-400 font-mono text-xs">
@@ -526,7 +588,6 @@ export default function Interview() {
       </header>
 
       <main className="relative z-10 flex-1 grid grid-rows-2 md:grid-rows-1 md:grid-cols-2 p-6 gap-6 overflow-hidden">
-        
         <section className="bg-neutral-900/40 backdrop-blur-xl border border-white/5 rounded-2xl p-6 flex flex-col items-center justify-center space-y-12">
           <h2 className="text-slate-400 font-medium tracking-wide text-sm flex items-center gap-2">
             <Volume2 className="h-4 w-4 text-indigo-400" /> Voice Feed Monitor
@@ -534,13 +595,15 @@ export default function Interview() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-16 w-full max-w-lg">
             <div className="flex flex-col items-center space-y-4">
-              <div 
+              <div
                 ref={aiHaloRef}
                 className={`relative flex items-center justify-center p-2 rounded-[28px] border transition-all duration-100 ease-out ${
-                  aiIsSpeaking ? "border-indigo-400/40 bg-indigo-500/5" : "border-indigo-500/10 bg-neutral-950/30"
+                  aiIsSpeaking
+                    ? "border-indigo-400/40 bg-indigo-500/5"
+                    : "border-indigo-500/10 bg-neutral-950/30"
                 }`}
               >
-                <div 
+                <div
                   ref={aiAvatarRef}
                   className={`ai-interviewer-stage h-40 w-40 sm:h-48 sm:w-48 ${aiIsSpeaking ? "is-speaking" : ""}`}
                   style={{ "--speech-level": 0 } as React.CSSProperties}
@@ -578,7 +641,9 @@ export default function Interview() {
               <div className="text-center">
                 <span className="text-slate-200 font-semibold text-base flex items-center justify-center gap-2">
                   Talentra AI
-                  <Radio className={`h-3.5 w-3.5 ${aiIsSpeaking ? "text-indigo-300 animate-pulse" : "text-slate-600"}`} />
+                  <Radio
+                    className={`h-3.5 w-3.5 ${aiIsSpeaking ? "text-indigo-300 animate-pulse" : "text-slate-600"}`}
+                  />
                 </span>
                 <p className="text-indigo-400 text-xs mt-0.5 font-medium uppercase tracking-wider">
                   {aiIsSpeaking ? "Speaking live" : "Interviewer standby"}
@@ -587,13 +652,13 @@ export default function Interview() {
             </div>
 
             <div className="flex flex-col items-center space-y-4">
-              <div 
+              <div
                 ref={userHaloRef}
                 className="relative flex items-center justify-center p-1 rounded-full border border-emerald-500/10 transition-all duration-100 ease-out"
               >
-                <div 
+                <div
                   ref={userAvatarRef}
-                  className={`h-24 w-24 rounded-full ${isMuted ? 'bg-neutral-800' : 'bg-gradient-to-tr from-emerald-600 to-emerald-800'} flex items-center justify-center shadow-lg transition-transform duration-100 ease-out`}
+                  className={`h-24 w-24 rounded-full ${isMuted ? "bg-neutral-800" : "bg-gradient-to-tr from-emerald-600 to-emerald-800"} flex items-center justify-center shadow-lg transition-transform duration-100 ease-out`}
                 >
                   {isMuted ? (
                     <MicOff className="h-10 w-10 text-neutral-400" />
@@ -603,7 +668,9 @@ export default function Interview() {
                 </div>
               </div>
               <div className="text-center">
-                <span className="text-slate-200 font-semibold text-base">You (Candidate)</span>
+                <span className="text-slate-200 font-semibold text-base">
+                  You (Candidate)
+                </span>
                 <p className="text-emerald-400 text-xs mt-0.5 font-medium uppercase tracking-wider">
                   {isMuted ? "Muted" : "Microphone Active"}
                 </p>
@@ -614,25 +681,38 @@ export default function Interview() {
           <div className="w-full max-w-sm grid grid-cols-3 gap-3 text-center">
             <div className="bg-neutral-950/40 border border-white/5 p-3 rounded-xl flex flex-col items-center">
               <Laptop className="h-4 w-4 text-slate-500 mb-1" />
-              <span className="text-[10px] text-slate-400 font-medium">Platform</span>
-              <span className="text-xs font-semibold text-slate-300">{isMockMode ? "Mock Sandbox" : "WebRTC"}</span>
+              <span className="text-[10px] text-slate-400 font-medium">
+                Platform
+              </span>
+              <span className="text-xs font-semibold text-slate-300">
+                {isMockMode ? "Mock Sandbox" : "WebRTC"}
+              </span>
             </div>
             <div className="bg-neutral-950/40 border border-white/5 p-3 rounded-xl flex flex-col items-center">
               <ShieldCheck className="h-4 w-4 text-slate-500 mb-1" />
-              <span className="text-[10px] text-slate-400 font-medium">Session IP</span>
-              <span className="text-xs font-semibold text-slate-300">Secured</span>
+              <span className="text-[10px] text-slate-400 font-medium">
+                Session IP
+              </span>
+              <span className="text-xs font-semibold text-slate-300">
+                Secured
+              </span>
             </div>
             <div className="bg-neutral-950/40 border border-white/5 p-3 rounded-xl flex flex-col items-center">
               <HelpCircle className="h-4 w-4 text-slate-500 mb-1" />
-              <span className="text-[10px] text-slate-400 font-medium">Audio Mode</span>
-              <span className="text-xs font-semibold text-slate-300">{isMockMode ? "Simulated" : "Duplex"}</span>
+              <span className="text-[10px] text-slate-400 font-medium">
+                Audio Mode
+              </span>
+              <span className="text-xs font-semibold text-slate-300">
+                {isMockMode ? "Simulated" : "Duplex"}
+              </span>
             </div>
           </div>
         </section>
 
         <section className="bg-neutral-900/40 backdrop-blur-xl border border-white/5 rounded-2xl p-6 flex flex-col overflow-hidden">
           <h2 className="text-slate-400 font-medium tracking-wide text-sm mb-4 flex items-center gap-2">
-            <Terminal className="h-4 w-4 text-indigo-400" /> Realtime Transcript Feed
+            <Terminal className="h-4 w-4 text-indigo-400" /> Realtime Transcript
+            Feed
           </h2>
 
           <div className="flex-1 overflow-y-auto space-y-4 pr-2 scrollbar-thin scrollbar-thumb-neutral-800 flex flex-col justify-between">
@@ -641,25 +721,31 @@ export default function Interview() {
                 <div className="h-full flex flex-col justify-center items-center text-slate-600 text-sm space-y-2">
                   <Laptop className="h-8 w-8 stroke-1 text-neutral-800" />
                   <p>Audios will be transcribed here in real-time.</p>
-                  <p className="text-xs text-slate-700">Go ahead, say hello to start the interview!</p>
+                  <p className="text-xs text-slate-700">
+                    Go ahead, say hello to start the interview!
+                  </p>
                 </div>
               )}
-              
+
               {transcripts.map((t) => (
-                <div 
-                  key={t.id} 
+                <div
+                  key={t.id}
                   className={`p-4 rounded-xl border max-w-[85%] ${
-                    t.type === "User" 
-                      ? "bg-emerald-950/20 border-emerald-500/10 text-emerald-100 mr-auto" 
+                    t.type === "User"
+                      ? "bg-emerald-950/20 border-emerald-500/10 text-emerald-100 mr-auto"
                       : "bg-indigo-950/20 border-indigo-500/10 text-indigo-100 ml-auto"
                   }`}
                 >
-                  <span className={`text-[10px] font-mono font-bold tracking-wider uppercase block mb-1 ${
-                    t.type === "User" ? "text-emerald-400" : "text-indigo-400"
-                  }`}>
+                  <span
+                    className={`text-[10px] font-mono font-bold tracking-wider uppercase block mb-1 ${
+                      t.type === "User" ? "text-emerald-400" : "text-indigo-400"
+                    }`}
+                  >
                     {t.type === "User" ? "You" : "Talentra AI"}
                   </span>
-                  <p className="text-sm font-sans leading-relaxed whitespace-pre-wrap">{t.message}</p>
+                  <p className="text-sm font-sans leading-relaxed whitespace-pre-wrap">
+                    {t.message}
+                  </p>
                 </div>
               ))}
 
@@ -668,22 +754,35 @@ export default function Interview() {
                   <span className="text-[10px] font-mono font-bold tracking-wider uppercase text-indigo-400 block mb-1">
                     Talentra AI (Speaking...)
                   </span>
-                  <p className="text-sm font-sans leading-relaxed whitespace-pre-wrap">{activeAiDelta}</p>
+                  <p className="text-sm font-sans leading-relaxed whitespace-pre-wrap">
+                    {activeAiDelta}
+                  </p>
                 </div>
               )}
             </div>
 
             {isMockMode && (
-              <form onSubmit={handleSendMockMessage} className="mt-4 flex gap-2 border-t border-white/5 pt-4">
-                <input 
-                  type="text" 
-                  placeholder={aiIsSpeaking ? "Interviewer is speaking..." : "Type response or talk to mic..."}
+              <form
+                onSubmit={handleSendMockMessage}
+                className="mt-4 flex gap-2 border-t border-white/5 pt-4"
+              >
+                <input
+                  type="text"
+                  placeholder={
+                    aiIsSpeaking
+                      ? "Interviewer is speaking..."
+                      : "Type response or talk to mic..."
+                  }
                   disabled={aiIsSpeaking}
                   value={mockInput}
-                  onChange={e => setMockInput(e.target.value)}
+                  onChange={(e) => setMockInput(e.target.value)}
                   className="flex-1 bg-black/40 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm outline-none text-slate-100 placeholder-slate-600 focus-visible:border-indigo-500"
                 />
-                <Button type="submit" disabled={aiIsSpeaking || !mockInput.trim()} className="bg-indigo-600 hover:bg-indigo-500 rounded-xl px-4 py-2 shrink-0 cursor-pointer">
+                <Button
+                  type="submit"
+                  disabled={aiIsSpeaking || !mockInput.trim()}
+                  className="bg-indigo-600 hover:bg-indigo-500 rounded-xl px-4 py-2 shrink-0 cursor-pointer"
+                >
                   Send Response
                 </Button>
               </form>
@@ -703,27 +802,41 @@ export default function Interview() {
               <span>Establishing secure audio link...</span>
             </div>
           ) : (
-            <div className={`flex items-center gap-2 ${isMockMode ? 'text-indigo-400' : 'text-emerald-400'} text-sm`}>
+            <div
+              className={`flex items-center gap-2 ${isMockMode ? "text-indigo-400" : "text-emerald-400"} text-sm`}
+            >
               <span className="relative flex h-2 w-2">
-                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${isMockMode ? 'bg-indigo-400' : 'bg-emerald-400'} opacity-75`}></span>
-                <span className={`relative inline-flex rounded-full h-2 w-2 ${isMockMode ? 'bg-indigo-500' : 'bg-emerald-500'}`}></span>
+                <span
+                  className={`animate-ping absolute inline-flex h-full w-full rounded-full ${isMockMode ? "bg-indigo-400" : "bg-emerald-400"} opacity-75`}
+                ></span>
+                <span
+                  className={`relative inline-flex rounded-full h-2 w-2 ${isMockMode ? "bg-indigo-500" : "bg-emerald-500"}`}
+                ></span>
               </span>
-              <span>{isMockMode ? "Sandbox Mock Mode (Offline)" : "Duplex audio connected"}</span>
+              <span>
+                {isMockMode
+                  ? "Sandbox Mock Mode (Offline)"
+                  : "Duplex audio connected"}
+              </span>
             </div>
           )}
         </div>
 
         <div className="flex items-center gap-4">
-          <Button 
+          <Button
             onClick={toggleMute}
             variant="outline"
-            className={`rounded-xl px-4 py-6 border-white/10 ${isMuted ? 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20' : 'hover:bg-neutral-800'} text-sm font-medium flex items-center gap-2 cursor-pointer`}
+            className={`rounded-xl px-4 py-6 border-white/10 ${isMuted ? "bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20" : "hover:bg-neutral-800"} text-sm font-medium flex items-center gap-2 cursor-pointer`}
           >
-            {isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            {isMuted ? (
+              <MicOff className="h-4 w-4" />
+            ) : (
+              <Mic className="h-4 w-4" />
+            )}
             {isMuted ? "Unmute" : "Mute"}
           </Button>
 
-          <Button 
+          <Button
             onClick={endInterview}
             variant="destructive"
             className="rounded-xl px-5 py-6 bg-red-600 hover:bg-red-500 text-white font-semibold text-sm flex items-center gap-2 border-t border-red-400/20 shadow-lg shadow-red-600/10 active:scale-95 transition-all cursor-pointer"
@@ -735,5 +848,5 @@ export default function Interview() {
 
       <audio autoPlay ref={audioRef}></audio>
     </div>
-  )
+  );
 }

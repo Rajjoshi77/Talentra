@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react"
-import { Button } from "./ui/button"
-import { Input } from "./ui/input"
-import { toast } from "sonner"
-import axios from "axios"
-import { BACKEND_URL } from "@/lib/config"
-import { useNavigate } from "react-router"
-import { Play, Loader2, Sparkles, Terminal } from "lucide-react"
+import { useState, useEffect } from "react";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { toast } from "sonner";
+import axios from "axios";
+import { BACKEND_URL } from "@/lib/config";
+import { useNavigate } from "react-router";
+import { Play, Loader2, Sparkles, Terminal } from "lucide-react";
 
 const Github = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -24,6 +24,20 @@ const Github = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+const normalizeGithubProfile = (input: string) => {
+  const value = input.trim().replace(/^@/, "");
+
+  if (/^https?:\/\//i.test(value)) {
+    return value;
+  }
+
+  if (/^(www\.)?github\.com\//i.test(value)) {
+    return `https://${value}`;
+  }
+
+  return `https://github.com/${value}`;
+};
+
 const Form = () => {
   const [gitInput, setGitInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -37,14 +51,16 @@ const Form = () => {
     "Extracting languages and programming stats...",
     "Synthesizing customized interview questions...",
     "Establishing secure WebRTC audio channels...",
-    "Initializing Talentra AI Interviewer session..."
+    "Initializing Talentra AI Interviewer session...",
   ];
 
   useEffect(() => {
     let interval: Timer;
     if (loading) {
       interval = setInterval(() => {
-        setLoadingStep((prev) => (prev < loadingSteps.length - 1 ? prev + 1 : prev));
+        setLoadingStep((prev) =>
+          prev < loadingSteps.length - 1 ? prev + 1 : prev,
+        );
       }, 1800);
     }
     return () => clearInterval(interval);
@@ -53,7 +69,7 @@ const Form = () => {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!gitInput.trim()) {
-      toast.error('Please provide a valid GitHub username or profile link.');
+      toast.error("Please provide a valid GitHub username or profile link.");
       return;
     }
 
@@ -61,14 +77,11 @@ const Form = () => {
     setLoadingStep(0);
 
     try {
-      let githubUrl = gitInput.trim();
-      if (!githubUrl.startsWith("http")) {
-        githubUrl = `https://github.com/${githubUrl}`;
-      }
+      const githubUrl = normalizeGithubProfile(gitInput);
 
       const response = await axios.post(`${BACKEND_URL}/api/v1/pre-interview`, {
         linkedIn: "https://linkedin.com/in/dummy-talentra",
-        github: githubUrl
+        github: githubUrl,
       });
 
       if (response.data && response.data.interviewId) {
@@ -81,7 +94,10 @@ const Form = () => {
       }
     } catch (error: any) {
       console.error(error);
-      toast.error(error.response?.data?.message || "Failed to parse GitHub profile. Make sure the username exists.");
+      toast.error(
+        error.response?.data?.message ||
+          "Failed to parse GitHub profile. Make sure the username exists.",
+      );
       setLoading(false);
     }
   }
@@ -110,13 +126,17 @@ const Form = () => {
               <Loader2 className="h-16 w-16 text-indigo-500 animate-spin" />
               <Github className="absolute h-6 w-6 text-slate-300" />
             </div>
-            
+
             <div className="space-y-2">
-              <h3 className="font-semibold text-lg text-indigo-300">Setting up your sandbox</h3>
+              <h3 className="font-semibold text-lg text-indigo-300">
+                Setting up your sandbox
+              </h3>
               <div className="h-1 w-48 bg-neutral-800 rounded-full overflow-hidden mx-auto">
-                <div 
-                  className="h-full bg-gradient-to-r from-indigo-500 to-emerald-400 transition-all duration-1000 ease-out" 
-                  style={{ width: `${((loadingStep + 1) / loadingSteps.length) * 100}%` }}
+                <div
+                  className="h-full bg-gradient-to-r from-indigo-500 to-emerald-400 transition-all duration-1000 ease-out"
+                  style={{
+                    width: `${((loadingStep + 1) / loadingSteps.length) * 100}%`,
+                  }}
                 />
               </div>
             </div>
@@ -133,21 +153,22 @@ const Form = () => {
                 <Github className="h-4 w-4" /> GitHub Username or Profile
               </label>
               <div className="relative flex items-center">
-                <Input 
-                  placeholder="e.g., torvalds or github.com/torvalds" 
+                <Input
+                  placeholder="e.g., torvalds or github.com/torvalds"
                   value={gitInput}
-                  onChange={e => setGitInput(e.target.value)}
+                  onChange={(e) => setGitInput(e.target.value)}
                   disabled={loading}
                   className="bg-black/40 border-neutral-800 focus-visible:border-indigo-500 focus-visible:ring-indigo-500/20 text-slate-100 placeholder-slate-600 h-12 rounded-xl text-base px-4 pr-10"
                 />
               </div>
               <p className="text-slate-500 text-xs px-0.5 font-light">
-                We'll scrape your public repos to tailor backend, frontend, or systems questions based on your actual stack.
+                We'll scrape your public repos to tailor backend, frontend, or
+                systems questions based on your actual stack.
               </p>
             </div>
 
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               disabled={loading}
               className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-semibold text-base py-6 rounded-xl hover:from-indigo-500 hover:to-indigo-600 active:scale-[0.98] transition-all duration-200 border-t border-indigo-400/20 shadow-lg shadow-indigo-600/20 flex justify-center items-center gap-2 cursor-pointer"
             >
@@ -158,10 +179,10 @@ const Form = () => {
       </div>
 
       <div className="absolute bottom-6 text-slate-600 text-xs font-mono">
-        Talentra Engine v1.0.0 • Powered by GPT-Realtime
+        Talentra Engine v1.0.0 - Powered by GPT-Realtime
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Form
+export default Form;
