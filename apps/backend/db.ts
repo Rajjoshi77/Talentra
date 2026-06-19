@@ -1,10 +1,7 @@
 import "dotenv/config";
 import { PrismaClient } from "./generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-
-const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL!,
-});
+import pg from "pg";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -14,7 +11,15 @@ if (!databaseUrl) {
   );
 }
 
+const isLocal = databaseUrl.includes("localhost") || databaseUrl.includes("127.0.0.1");
+
+const pool = new pg.Pool({
+  connectionString: databaseUrl,
+  ...(isLocal ? {} : { ssl: { rejectUnauthorized: false } }),
+});
+
+const adapter = new PrismaPg(pool);
+
 export const prisma = new PrismaClient({
   adapter,
 });
-
