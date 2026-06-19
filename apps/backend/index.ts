@@ -664,6 +664,17 @@ export { app };
 if (import.meta.main) {
   const port = Number(process.env.PORT || 3001);
 
+  console.log("[startup] DATABASE_URL:", process.env.DATABASE_URL);
+
+  prisma.$connect()
+    .then(() => {
+      console.log("[startup] Successfully connected to the database.");
+    })
+    .catch((err) => {
+      console.error("\x1b[31m%s\x1b[0m", "[DATABASE ERROR] Failed to connect to the database on startup:");
+      console.error(err);
+    });
+
   app.listen(port, "0.0.0.0", () => {
     console.log(`Server running on port ${port}`);
   });
