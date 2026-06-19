@@ -3,7 +3,9 @@
   "module": "index.ts",
   "type": "module",
   "scripts": {
-    "test": "bun test"
+    "test": "bun test",
+    "build": "prisma generate && prisma migrate deploy",
+    "start": "bun run index.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",
