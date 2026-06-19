@@ -1,3 +1,5 @@
 export const BACKEND_URL = (
-  process.env.BACKEND_URL || "http://localhost:3001"
+  // If you set BACKEND_URL during build/runtime, it will override this default.
+  process.env.BACKEND_URL || "https://talentra-cv2n.onrender.com"
 ).replace(/\/$/, "");
+
