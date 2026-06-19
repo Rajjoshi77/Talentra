@@ -11,7 +11,9 @@ if (!databaseUrl) {
   );
 }
 
-const isLocal = databaseUrl.includes("localhost") || databaseUrl.includes("127.0.0.1");
+// Use SSL for any non-local database (required for Supabase, Render Postgres, Neon, etc.)
+const isLocal =
+  databaseUrl.includes("localhost") || databaseUrl.includes("127.0.0.1");
 
 const pool = new pg.Pool({
   connectionString: databaseUrl,
