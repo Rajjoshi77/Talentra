@@ -88,20 +88,26 @@ app.post("/api/v1/pre-interview", async (req, res) => {
       success: true,
       interviewId: interview.id,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Pre Interview Error:", error);
 
-    if ((error as any)?.response?.status === 404) {
+    const errMsg = error?.message;
+    if (errMsg === "GitHub profile not found" || error?.response?.status === 404) {
       return res.status(404).json({
         success: false,
-        message:
-          "GitHub user not found. Check the username or profile URL and try again.",
+        message: "GitHub profile not found. Please make sure the username exists.",
+      });
+    }
+    if (errMsg === "GitHub API rate limit exceeded" || error?.response?.status === 403) {
+      return res.status(403).json({
+        success: false,
+        message: "GitHub API rate limit exceeded. Please try again later.",
       });
     }
 
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error",
+      message: "Internal Server Error. Please try again.",
     });
   }
 });
