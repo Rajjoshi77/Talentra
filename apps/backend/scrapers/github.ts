@@ -1,29 +1,5 @@
-import axios from "axios";
-
 export async function scrapeGithub(username: string) {
-  const axiosConfig: any = {
-    timeout: 10000,
-  };
-
-  // Set proxy ONLY if proxy settings are configured in environment variables
-  if (process.env.PROXY_HOST && process.env.PROXY_PORT) {
-    axiosConfig.proxy = {
-      protocol: "http",
-      host: process.env.PROXY_HOST,
-      port: Number(process.env.PROXY_PORT),
-    };
-    if (process.env.PROXY_USERNAME && process.env.PROXY_PASSWORD) {
-      axiosConfig.proxy.auth = {
-        username: process.env.PROXY_USERNAME,
-        password: process.env.PROXY_PASSWORD,
-      };
-    }
-  } else {
-    axiosConfig.proxy = false;
-  }
-
-  // Set user-agent header as required by GitHub API
-  axiosConfig.headers = {
+  const headers: Record<string, string> = {
     "User-Agent": "Talentra-AI-Interviewer/1.0",
     Accept: "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
@@ -31,26 +7,55 @@ export async function scrapeGithub(username: string) {
 
   // Add GitHub Token if available to increase rate limit from 60 to 5000/hr
   if (process.env.GITHUB_TOKEN) {
-    axiosConfig.headers["Authorization"] = `Bearer ${process.env.GITHUB_TOKEN}`;
+    headers["Authorization"] = `Bearer ${process.env.GITHUB_TOKEN}`;
   }
 
-  try {
-    // Fetch up to 100 repos sorted by most recently updated
-    const userRepoInfo = await axios.get(
-      `https://api.github.com/users/${username}/repos?per_page=100&sort=updated&direction=desc`,
-      axiosConfig
-    );
+  // Build proxy URL for Bun's native fetch (Bun requires a 'url' string, not host/port)
+  let proxyUrl: string | undefined;
+  if (process.env.PROXY_HOST && process.env.PROXY_PORT) {
+    if (process.env.PROXY_USERNAME && process.env.PROXY_PASSWORD) {
+      proxyUrl = `http://${process.env.PROXY_USERNAME}:${process.env.PROXY_PASSWORD}@${process.env.PROXY_HOST}:${process.env.PROXY_PORT}`;
+    } else {
+      proxyUrl = `http://${process.env.PROXY_HOST}:${process.env.PROXY_PORT}`;
+    }
+  }
 
-    if (!userRepoInfo.data || !Array.isArray(userRepoInfo.data)) {
+  const url = `https://api.github.com/users/${username}/repos?per_page=100&sort=updated&direction=desc`;
+
+  try {
+    const fetchOptions: any = {
+      headers,
+    };
+
+    // Bun's fetch supports proxy as a URL string
+    if (proxyUrl) {
+      fetchOptions.proxy = proxyUrl;
+    }
+
+    const response = await fetch(url, fetchOptions);
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error("GitHub profile not found");
+      }
+      if (response.status === 403 || response.status === 429) {
+        throw new Error("GitHub API rate limit exceeded. Please try again later.");
+      }
+      throw new Error(`GitHub API returned ${response.status}: ${response.statusText}`);
+    }
+
+    const data: any = await response.json();
+
+    if (!Array.isArray(data)) {
       throw new Error("GitHub returned unexpected response format");
     }
 
-    if (userRepoInfo.data.length === 0) {
+    if (data.length === 0) {
       return [];
     }
 
     // Sort by stars descending so we highlight the best repos
-    const sorted = [...userRepoInfo.data].sort(
+    const sorted = [...data].sort(
       (a: any, b: any) => (b.stargazers_count || 0) - (a.stargazers_count || 0)
     );
 
@@ -69,21 +74,19 @@ export async function scrapeGithub(username: string) {
   } catch (error: any) {
     console.error(
       `[Scraper Error] Failed to scrape GitHub for ${username}:`,
-      error.message,
-      error.response?.status,
-      error.response?.data
+      error.message
     );
 
-    if (error.response) {
-      if (error.response.status === 404) {
-        throw new Error("GitHub profile not found");
-      }
-      if (error.response.status === 403 || error.response.status === 429) {
-        throw new Error("GitHub API rate limit exceeded");
-      }
+    // Re-throw known errors directly
+    if (
+      error.message.includes("not found") ||
+      error.message.includes("rate limit") ||
+      error.message.includes("GitHub API returned")
+    ) {
+      throw error;
     }
 
-    // For genuine network failures, throw so we surface the issue instead of silently proceeding
+    // For genuine network/proxy failures, throw with context
     throw new Error(
       `Failed to reach GitHub API: ${error.message}. Please try again.`
     );
