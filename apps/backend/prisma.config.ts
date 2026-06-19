@@ -23,6 +23,7 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
+    url: databaseUrl,
     adapter: new PrismaPg(pool),
   },
 });
