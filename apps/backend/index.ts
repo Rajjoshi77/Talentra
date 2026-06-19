@@ -49,13 +49,40 @@ app.post("/api/v1/pre-interview", async (req, res) => {
       });
     }
 
-    const GitHubData = await scrapeGithub(githubUsername);
-    const interview = await prisma.interview.create({
-      data: {
-        githubMetadata: JSON.stringify(GitHubData),
-        status: "Pre",
-      },
-    });
+    let GitHubData: any;
+    try {
+      GitHubData = await scrapeGithub(githubUsername);
+    } catch (err) {
+      console.error("Scrape Github Error:", {
+        username: githubUsername,
+        error: err,
+        ...(err as any)?.response
+          ? {
+              axiosStatus: (err as any).response?.status,
+              axiosData: (err as any).response?.data,
+            }
+          : {},
+      });
+      throw err;
+    }
+
+    let interview: any;
+    try {
+      interview = await prisma.interview.create({
+        data: {
+          githubMetadata: JSON.stringify(GitHubData),
+          status: "Pre",
+        },
+      });
+    } catch (err) {
+      console.error("Prisma Create Interview Error:", {
+        interview: {
+          username: githubUsername,
+        },
+        error: err,
+      });
+      throw err;
+    }
 
     return res.status(200).json({
       success: true,
