@@ -108,6 +108,7 @@ app.post("/api/v1/pre-interview", async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Internal Server Error. Please try again.",
+      __debug_error: error?.message || String(error),
     });
   }
 });
