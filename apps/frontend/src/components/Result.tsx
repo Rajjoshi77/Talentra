@@ -2,9 +2,9 @@ import { useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router"
 import { BACKEND_URL } from "@/lib/config"
 import { Button } from "./ui/button"
-import { 
-  Award, MessageSquare, RotateCcw, ShieldAlert, CheckCircle2, 
-  Terminal, FileText, ChevronRight, Loader2, Sparkles 
+import {
+  Award, MessageSquare, RotateCcw, ShieldAlert, CheckCircle2,
+  Terminal, FileText, ChevronRight, Loader2, Sparkles
 } from "lucide-react"
 
 const Github = (props: React.SVGProps<SVGSVGElement>) => (
@@ -65,7 +65,7 @@ function parseMarkdownInline(text: string): React.ReactNode[] {
 function renderMarkdown(rawText: string): React.ReactNode {
   const lines = rawText.split(/\r?\n/);
   const elements: React.ReactNode[] = [];
-  
+
   let currentList: React.ReactNode[] = [];
   let currentListType: "ul" | "ol" | null = null;
   let currentListKey = 0;
@@ -103,12 +103,12 @@ function renderMarkdown(rawText: string): React.ReactNode {
       flushList();
       const match = trimmed.match(/^(#{1,6})\s+(.*)$/);
       if (match) {
-        const level = match[1].length;
-        const content = match[2];
-        const headingClasses = 
+        const level = match[1]?.length || 0;
+        const content = match[2] || "";
+        const headingClasses =
           level === 1 ? "text-2xl font-extrabold text-white mt-8 mb-4 border-b border-white/10 pb-2" :
-          level === 2 ? "text-xl font-bold text-white mt-6 mb-3 border-l-2 border-indigo-500 pl-3" :
-          "text-lg font-semibold text-slate-200 mt-4 mb-2";
+            level === 2 ? "text-xl font-bold text-white mt-6 mb-3 border-l-2 border-indigo-500 pl-3" :
+              "text-lg font-semibold text-slate-200 mt-4 mb-2";
         elements.push(
           <h3 key={index} className={headingClasses}>
             {parseMarkdownInline(content)}
@@ -140,7 +140,7 @@ function renderMarkdown(rawText: string): React.ReactNode {
         flushList();
         currentListType = "ol";
       }
-      const content = olMatch[2];
+      const content = olMatch[2] || "";
       currentList.push(
         <li key={index} className="marker:text-indigo-400 text-slate-300 font-medium">
           {parseMarkdownInline(content)}
@@ -192,11 +192,12 @@ export default function Result() {
 
   useEffect(() => {
     const fetchAndEvaluate = async () => {
+      toast.dismiss();
       try {
         // Step 1: Trigger evaluation
         console.log("Starting evaluation for interview:", interviewId);
         const evalResponse = await axios.post(`${BACKEND_URL}/api/v1/interview/${interviewId}/evaluate`);
-        
+
         if (evalResponse.data && evalResponse.data.success) {
           // Step 2: Fetch full interview details (including conversation logs)
           const infoResponse = await axios.get(`${BACKEND_URL}/api/v1/interview/${interviewId}`);
@@ -226,13 +227,13 @@ export default function Result() {
       <div className="relative h-screen w-screen overflow-hidden bg-radial from-slate-950 via-neutral-950 to-black text-slate-100 flex flex-col justify-center items-center font-sans p-4">
         {/* Glowing backgrounds */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none" />
-        
+
         <div className="relative z-10 w-full max-w-[440px] bg-neutral-900/60 backdrop-blur-2xl border border-white/10 rounded-2xl p-8 shadow-2xl text-center space-y-6">
           <div className="relative flex items-center justify-center">
             <Loader2 className="h-16 w-16 text-emerald-500 animate-spin" />
             <Award className="absolute h-6 w-6 text-slate-300" />
           </div>
-          
+
           <div className="space-y-2">
             <h3 className="font-semibold text-lg text-emerald-400">Compiling Feedback</h3>
             <p className="text-slate-400 text-xs px-4">
@@ -272,13 +273,13 @@ export default function Result() {
 
   return (
     <div className="min-h-screen w-screen bg-neutral-950 text-slate-100 font-sans p-6 md:p-12 overflow-y-auto">
-      
+
       {/* Background aesthetics */}
       <div className="fixed top-0 left-1/4 w-[500px] h-[500px] bg-indigo-500/5 rounded-full blur-[130px] pointer-events-none" />
       <div className="fixed bottom-0 right-1/4 w-[500px] h-[500px] bg-emerald-500/5 rounded-full blur-[130px] pointer-events-none" />
 
       <div className="relative z-10 max-w-6xl mx-auto space-y-8">
-        
+
         {/* Navigation & Title */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-white/5">
           <div>
@@ -287,33 +288,44 @@ export default function Result() {
             </h1>
             <p className="text-slate-500 text-sm mt-1">Interview sandbox completed on Talentra AI</p>
           </div>
-          <Button 
-            onClick={() => navigate("/")} 
-            variant="outline" 
-            className="self-start sm:self-auto rounded-xl border-white/10 hover:bg-neutral-900 cursor-pointer flex items-center gap-2"
+          <Button
+            onClick={() => navigate("/")}
+            className="
+    rounded-xl
+    bg-white
+    text-black
+    hover:bg-neutral-200
+    font-medium
+    px-4 py-2
+    flex items-center gap-2
+    shadow-md
+    transition-all
+    cursor-pointer
+  "
           >
-            <RotateCcw className="h-4 w-4" /> Start New Session
+            <RotateCcw className="h-4 w-4" />
+            Start New Session
           </Button>
         </div>
 
         {/* Top Overview Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
+
           {/* Score Circle Panel */}
           <div className="bg-neutral-900/40 backdrop-blur-xl border border-white/5 rounded-2xl p-6 flex flex-col items-center justify-center text-center shadow-lg">
             <h3 className="text-slate-400 font-semibold text-sm mb-4 tracking-wider uppercase">Overall Rating</h3>
-            
+
             {/* Score Ring */}
             <div className="relative flex items-center justify-center h-36 w-36 mb-4">
               <svg className="absolute h-full w-full -rotate-90">
-                <circle 
-                  cx="72" cy="72" r="62" 
-                  className="stroke-neutral-800 fill-none" 
+                <circle
+                  cx="72" cy="72" r="62"
+                  className="stroke-neutral-800 fill-none"
                   strokeWidth="8"
                 />
-                <circle 
-                  cx="72" cy="72" r="62" 
-                  className="stroke-emerald-500 fill-none transition-all duration-1000 ease-out" 
+                <circle
+                  cx="72" cy="72" r="62"
+                  className="stroke-emerald-500 fill-none transition-all duration-1000 ease-out"
                   strokeWidth="8"
                   strokeDasharray={2 * Math.PI * 62}
                   strokeDashoffset={2 * Math.PI * 62 * (1 - data.score / 100)}
@@ -325,11 +337,10 @@ export default function Result() {
               </div>
             </div>
 
-            <span className={`px-3.5 py-1 rounded-full text-xs font-semibold ${
-              data.score >= 80 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+            <span className={`px-3.5 py-1 rounded-full text-xs font-semibold ${data.score >= 80 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
               data.score >= 60 ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20' :
-              'bg-red-500/10 text-red-400 border border-red-500/20'
-            }`}>
+                'bg-red-500/10 text-red-400 border border-red-500/20'
+              }`}>
               {data.score >= 80 ? 'Excellent Match' : data.score >= 60 ? 'Average Match' : 'Revision Suggested'}
             </span>
           </div>
@@ -340,13 +351,13 @@ export default function Result() {
               <h3 className="text-slate-400 font-semibold text-sm mb-4 tracking-wider uppercase flex items-center gap-2">
                 <Github className="h-4 w-4 text-indigo-400" /> Linked GitHub Portfolio
               </h3>
-              
+
               {repos && repos.length > 0 ? (
                 <div className="space-y-4">
                   <p className="text-slate-300 text-sm">
                     Scraped <span className="text-indigo-400 font-semibold">{repos.length} public repositories</span>.
                   </p>
-                  
+
                   {/* Top Repos list */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {repos.slice(0, 4).map((r: any, idx: number) => (
@@ -377,7 +388,7 @@ export default function Result() {
 
         {/* Detailed Evaluation & Transcript Tabs */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-          
+
           {/* Left Column: AI Detailed Constructive Feedback Report (Span 2) */}
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-neutral-900/40 backdrop-blur-xl border border-white/5 rounded-2xl p-8 shadow-lg">
@@ -405,17 +416,15 @@ export default function Result() {
               <div className="flex-1 overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-neutral-800">
                 {data.conversation && data.conversation.length > 0 ? (
                   data.conversation.map((msg) => (
-                    <div 
-                      key={msg.id} 
-                      className={`p-3.5 rounded-xl border text-xs leading-normal ${
-                        msg.type === "User" 
-                          ? "bg-emerald-950/15 border-emerald-500/10 text-emerald-100" 
-                          : "bg-indigo-950/15 border-indigo-500/10 text-indigo-100"
-                      }`}
+                    <div
+                      key={msg.id}
+                      className={`p-3.5 rounded-xl border text-xs leading-normal ${msg.type === "User"
+                        ? "bg-emerald-950/15 border-emerald-500/10 text-emerald-100"
+                        : "bg-indigo-950/15 border-indigo-500/10 text-indigo-100"
+                        }`}
                     >
-                      <span className={`text-[9px] font-mono font-bold tracking-wider uppercase block mb-1 ${
-                        msg.type === "User" ? "text-emerald-400" : "text-indigo-400"
-                      }`}>
+                      <span className={`text-[9px] font-mono font-bold tracking-wider uppercase block mb-1 ${msg.type === "User" ? "text-emerald-400" : "text-indigo-400"
+                        }`}>
                         {msg.type === "User" ? "You" : "Talentra AI"}
                       </span>
                       <p className="whitespace-pre-wrap">{msg.message}</p>

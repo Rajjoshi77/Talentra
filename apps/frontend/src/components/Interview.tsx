@@ -13,6 +13,8 @@ import {
   Laptop,
   ShieldCheck,
   Radio,
+  Camera,
+  CameraOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import axios from "axios";
@@ -51,14 +53,22 @@ export default function Interview() {
   const [isMockMode, setIsMockMode] = useState(false);
   const [mockInput, setMockInput] = useState("");
   const [aiIsSpeaking, setAiIsSpeaking] = useState(false);
+  const [cameraOn, setCameraOn] = useState(true);
+  const [hasCamera, setHasCamera] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
 
   const localStreamRef = useRef<MediaStream | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const dcRef = useRef<RTCDataChannel | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const recognitionRef = useRef<any>(null);
   const initialized = useRef(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
+  const screenStreamRef = useRef<MediaStream | null>(null);
+  const shouldDownloadRef = useRef(false);
 
   const aiHaloRef = useRef<HTMLDivElement>(null);
   const userHaloRef = useRef<HTMLDivElement>(null);
@@ -94,9 +104,42 @@ export default function Interview() {
         const audioCtx = new AudioContextClass();
         audioCtxRef.current = audioCtx;
 
-        const ms = await navigator.mediaDevices.getUserMedia({ audio: true });
+        let ms: MediaStream;
+        try {
+          ms = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+          setHasCamera(true);
+          setCameraOn(true);
+        } catch (err) {
+          console.warn("Camera access denied or unavailable, falling back to audio-only stream:", err);
+          ms = await navigator.mediaDevices.getUserMedia({ audio: true });
+          setHasCamera(false);
+          setCameraOn(false);
+        }
         localStreamRef.current = ms;
-        pc.addTrack(ms.getTracks()[0]!, ms);
+
+        let screenStream: MediaStream | null = null;
+        try {
+          screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+          screenStreamRef.current = screenStream;
+        } catch (err) {
+          console.warn("Screen share denied or unavailable, falling back to camera/audio recording:", err);
+        }
+
+        let recorderStream: MediaStream;
+        if (screenStream) {
+          recorderStream = new MediaStream([
+            ...screenStream.getVideoTracks(),
+            ...ms.getAudioTracks(),
+          ]);
+        } else {
+          recorderStream = ms;
+        }
+        startRecording(recorderStream);
+
+        const audioTrack = ms.getAudioTracks()[0];
+        if (audioTrack) {
+          pc.addTrack(audioTrack, ms);
+        }
 
         const userSource = audioCtx.createMediaStreamSource(ms);
         const userAnalyser = audioCtx.createAnalyser();
@@ -185,8 +228,8 @@ export default function Interview() {
             const errObj = JSON.parse(answerText);
             throw new Error(
               errObj.error?.message ||
-                errObj.message ||
-                "Invalid Session SDP from server",
+              errObj.message ||
+              "Invalid Session SDP from server",
             );
           } catch (e) {
             throw new Error("Invalid SDP response format");
@@ -263,12 +306,15 @@ export default function Interview() {
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach((track) => track.stop());
       }
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
       if (pcRef.current) pcRef.current.close();
       if (audioCtxRef.current) audioCtxRef.current.close();
       if (recognitionRef.current) {
         try {
           recognitionRef.current.abort();
-        } catch (e) {}
+        } catch (e) { }
       }
       if ("speechSynthesis" in window) {
         window.speechSynthesis.cancel();
@@ -286,8 +332,39 @@ export default function Interview() {
 
     try {
       if (!localStreamRef.current) {
-        const ms = await navigator.mediaDevices.getUserMedia({ audio: true });
+        let ms: MediaStream;
+        try {
+          ms = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+          setHasCamera(true);
+          setCameraOn(true);
+        } catch (err) {
+          console.warn("Camera access denied or unavailable in mock mode, falling back to audio-only stream:", err);
+          ms = await navigator.mediaDevices.getUserMedia({ audio: true });
+          setHasCamera(false);
+          setCameraOn(false);
+        }
         localStreamRef.current = ms;
+
+        let screenStream: MediaStream | null = null;
+        try {
+          screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+          screenStreamRef.current = screenStream;
+        } catch (err) {
+          console.warn("Screen share denied or unavailable in mock mode, falling back to camera/audio recording:", err);
+        }
+
+        let recorderStream: MediaStream;
+        if (screenStream) {
+          recorderStream = new MediaStream([
+            ...screenStream.getVideoTracks(),
+            ...ms.getAudioTracks(),
+          ]);
+        } else {
+          recorderStream = ms;
+        }
+        startRecording(recorderStream);
+      } else {
+        startRecording(localStreamRef.current);
       }
 
       const AudioContextClass =
@@ -451,7 +528,7 @@ export default function Interview() {
     if (recognitionRef.current) {
       try {
         recognitionRef.current.abort();
-      } catch (e) {}
+      } catch (e) { }
     }
 
     const SpeechLib =
@@ -481,7 +558,7 @@ export default function Interview() {
 
       try {
         rec.start();
-      } catch (err) {}
+      } catch (err) { }
     }
   };
 
@@ -495,7 +572,7 @@ export default function Interview() {
     if (recognitionRef.current) {
       try {
         recognitionRef.current.abort();
-      } catch (err) {}
+      } catch (err) { }
     }
 
     appendTranscript("User", text);
@@ -518,6 +595,96 @@ export default function Interview() {
       }
     }
   };
+
+  const toggleCamera = () => {
+    if (!localStreamRef.current) return;
+    const videoTrack = localStreamRef.current.getVideoTracks()[0];
+    if (videoTrack) {
+      videoTrack.enabled = !videoTrack.enabled;
+      setCameraOn(videoTrack.enabled);
+      toast.info(
+        videoTrack.enabled ? "Camera preview on" : "Camera preview off",
+      );
+    } else {
+      toast.error("No camera track found.");
+    }
+  };
+
+  const startRecording = (stream: MediaStream) => {
+    try {
+      const getSupportedMimeType = () => {
+        const types = [
+          "video/webm;codecs=vp9,opus",
+          "video/webm;codecs=vp8,opus",
+          "video/webm;codecs=h264",
+          "video/webm",
+          "video/mp4;codecs=h264,aac",
+          "video/mp4"
+        ];
+        for (const type of types) {
+          if (MediaRecorder.isTypeSupported(type)) {
+            return type;
+          }
+        }
+        return "";
+      };
+
+      const mimeType = getSupportedMimeType();
+      const options = mimeType ? { mimeType } : undefined;
+      const mediaRecorder = new MediaRecorder(stream, options);
+      mediaRecorderRef.current = mediaRecorder;
+      recordingChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          recordingChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        if (shouldDownloadRef.current && recordingChunksRef.current.length > 0) {
+          const actualMime = mediaRecorder.mimeType || mimeType || "video/webm";
+          const ext = actualMime.includes("video/mp4") ? "mp4" : "webm";
+
+          const blob = new Blob(recordingChunksRef.current, {
+            type: actualMime,
+          });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          document.body.appendChild(a);
+          a.style.display = "none";
+          a.href = url;
+          a.download = `Talentra-Interview-${interviewId || "session"}.${ext}`;
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+
+          if (ext === "webm") {
+            toast.success(
+              "Interview recording downloaded! To play it, drag & drop the WebM file into a Google Chrome or Edge browser tab, or open it with VLC.",
+              { duration: 8000 }
+            );
+          } else {
+            toast.success("Interview recording downloaded successfully!");
+          }
+        }
+      };
+
+      // Start recording without timeslices to ensure full container header integrity
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.warn("Failed to start media recording:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (videoRef.current && localStreamRef.current) {
+      if (videoRef.current.srcObject !== localStreamRef.current) {
+        videoRef.current.srcObject = localStreamRef.current;
+      }
+    }
+  }, [cameraOn, status, isMockMode, hasCamera]);
 
   const appendTranscript = (type: "User" | "Assistant", message: string) => {
     setTranscripts((prev) => [
@@ -546,8 +713,17 @@ export default function Interview() {
   const endInterview = async () => {
     setStatus("ended");
 
+    shouldDownloadRef.current = true;
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => track.stop());
+    }
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((track) => track.stop());
     }
     if (pcRef.current) {
       pcRef.current.close();
@@ -555,7 +731,7 @@ export default function Interview() {
     if (recognitionRef.current) {
       try {
         recognitionRef.current.abort();
-      } catch (e) {}
+      } catch (e) { }
     }
     if ("speechSynthesis" in window) {
       window.speechSynthesis.cancel();
@@ -571,15 +747,23 @@ export default function Interview() {
       <div className="absolute bottom-10 right-10 w-[300px] h-[300px] bg-emerald-500/5 rounded-full blur-[90px] pointer-events-none" />
 
       <header className="relative z-10 border-b border-white/5 bg-neutral-900/40 backdrop-blur-md px-8 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div
-            className={`h-2 w-2 rounded-full ${isMockMode ? "bg-indigo-500" : "bg-emerald-500"} animate-pulse`}
-          />
-          <span className="font-mono text-xs text-slate-400 tracking-wider uppercase">
-            {isMockMode
-              ? "Sandbox Session: Mock Mode"
-              : "Sandbox Session: Active"}
-          </span>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div
+              className={`h-2 w-2 rounded-full ${isMockMode ? "bg-indigo-500" : "bg-emerald-500"} animate-pulse`}
+            />
+            <span className="font-mono text-xs text-slate-400 tracking-wider uppercase">
+              {isMockMode
+                ? "Sandbox Session: Mock Mode"
+                : "Sandbox Session: Active"}
+            </span>
+          </div>
+          {isRecording && (
+            <div className="flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-md">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+              <span className="text-[10px] font-mono text-red-400 font-bold uppercase tracking-wider">REC</span>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2 bg-neutral-950/60 border border-white/5 px-3 py-1.5 rounded-lg text-slate-400 font-mono text-xs">
           <Terminal className="h-3.5 w-3.5 text-indigo-400" />
@@ -597,11 +781,10 @@ export default function Interview() {
             <div className="flex flex-col items-center space-y-4">
               <div
                 ref={aiHaloRef}
-                className={`relative flex items-center justify-center p-2 rounded-[28px] border transition-all duration-100 ease-out ${
-                  aiIsSpeaking
-                    ? "border-indigo-400/40 bg-indigo-500/5"
-                    : "border-indigo-500/10 bg-neutral-950/30"
-                }`}
+                className={`relative flex items-center justify-center p-2 rounded-[28px] border transition-all duration-100 ease-out ${aiIsSpeaking
+                  ? "border-indigo-400/40 bg-indigo-500/5"
+                  : "border-indigo-500/10 bg-neutral-950/30"
+                  }`}
               >
                 <div
                   ref={aiAvatarRef}
@@ -654,18 +837,34 @@ export default function Interview() {
             <div className="flex flex-col items-center space-y-4">
               <div
                 ref={userHaloRef}
-                className="relative flex items-center justify-center p-1 rounded-full border border-emerald-500/10 transition-all duration-100 ease-out"
+                className={`relative flex items-center justify-center p-1 border border-emerald-500/10 transition-all duration-100 ease-out ${cameraOn && hasCamera ? "rounded-2xl" : "rounded-full"
+                  }`}
               >
-                <div
-                  ref={userAvatarRef}
-                  className={`h-24 w-24 rounded-full ${isMuted ? "bg-neutral-800" : "bg-gradient-to-tr from-emerald-600 to-emerald-800"} flex items-center justify-center shadow-lg transition-transform duration-100 ease-out`}
-                >
-                  {isMuted ? (
-                    <MicOff className="h-10 w-10 text-neutral-400" />
-                  ) : (
-                    <UserIcon className="h-10 w-10 text-white" />
-                  )}
-                </div>
+                {cameraOn && hasCamera ? (
+                  <div
+                    ref={userAvatarRef}
+                    className="w-40 h-30 sm:w-48 sm:h-36 rounded-xl overflow-hidden shadow-lg transition-transform duration-100 ease-out bg-neutral-950/30"
+                  >
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div
+                    ref={userAvatarRef}
+                    className={`h-24 w-24 rounded-full ${isMuted ? "bg-neutral-800" : "bg-gradient-to-tr from-emerald-600 to-emerald-800"} flex items-center justify-center shadow-lg transition-transform duration-100 ease-out`}
+                  >
+                    {isMuted ? (
+                      <MicOff className="h-10 w-10 text-neutral-400" />
+                    ) : (
+                      <UserIcon className="h-10 w-10 text-white" />
+                    )}
+                  </div>
+                )}
               </div>
               <div className="text-center">
                 <span className="text-slate-200 font-semibold text-base">
@@ -730,16 +929,14 @@ export default function Interview() {
               {transcripts.map((t) => (
                 <div
                   key={t.id}
-                  className={`p-4 rounded-xl border max-w-[85%] ${
-                    t.type === "User"
-                      ? "bg-emerald-950/20 border-emerald-500/10 text-emerald-100 mr-auto"
-                      : "bg-indigo-950/20 border-indigo-500/10 text-indigo-100 ml-auto"
-                  }`}
+                  className={`p-4 rounded-xl border max-w-[85%] ${t.type === "User"
+                    ? "bg-emerald-950/20 border-emerald-500/10 text-emerald-100 mr-auto"
+                    : "bg-indigo-950/20 border-indigo-500/10 text-indigo-100 ml-auto"
+                    }`}
                 >
                   <span
-                    className={`text-[10px] font-mono font-bold tracking-wider uppercase block mb-1 ${
-                      t.type === "User" ? "text-emerald-400" : "text-indigo-400"
-                    }`}
+                    className={`text-[10px] font-mono font-bold tracking-wider uppercase block mb-1 ${t.type === "User" ? "text-emerald-400" : "text-indigo-400"
+                      }`}
                   >
                     {t.type === "User" ? "You" : "Talentra AI"}
                   </span>
@@ -826,14 +1023,32 @@ export default function Interview() {
           <Button
             onClick={toggleMute}
             variant="outline"
-            className={`rounded-xl px-4 py-6 border-white/10 ${isMuted ? "bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20" : "hover:bg-neutral-800"} text-sm font-medium flex items-center gap-2 cursor-pointer`}
+            className={`rounded-xl px-5 py-6 border transition-all duration-200 font-medium flex items-center gap-2 cursor-pointer
+    ${isMuted
+                ? "bg-red-500 text-white border-red-500 hover:bg-red-600"
+                : "bg-white text-black border-white hover:bg-gray-100"
+              }`}
           >
             {isMuted ? (
               <MicOff className="h-4 w-4" />
             ) : (
               <Mic className="h-4 w-4" />
             )}
-            {isMuted ? "Unmute" : "Mute"}
+            <span>{isMuted ? "Unmute" : "Mute"}</span>
+          </Button>
+
+          <Button
+            onClick={toggleCamera}
+            variant="outline"
+            disabled={!hasCamera}
+            className={`rounded-xl px-5 py-6 border transition-all duration-200 font-medium flex items-center gap-2 cursor-pointer ${hasCamera && !cameraOn ? "bg-red-500 text-white border-red-500 hover:bg-red-600" : "bg-white text-black border-white hover:bg-gray-100"} text-sm font-medium flex items-center gap-2 cursor-pointer`}
+          >
+            {cameraOn && hasCamera ? (
+              <Camera className="h-4 w-4" />
+            ) : (
+              <CameraOff className="h-4 w-4" />
+            )}
+            {cameraOn && hasCamera ? "Camera Off" : "Camera On"}
           </Button>
 
           <Button

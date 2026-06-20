@@ -572,6 +572,10 @@ ${interview.conversation.map((m: any) => `${m.type}: ${m.message}`).join("\n")}
       error,
     );
 
+    if (!interview) {
+      return res.status(500).json({ error: "Failed to load interview metadata for fallback evaluation" });
+    }
+
     let repos: any[] = [];
     try {
       repos =
