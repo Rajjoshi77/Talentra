@@ -9,12 +9,21 @@ if (!databaseUrl) {
   throw new Error("DATABASE_URL environment variable is not set.");
 }
 
-const isLocal =
-  databaseUrl.includes("localhost") || databaseUrl.includes("127.0.0.1");
+const isLocalOrInternal =
+  databaseUrl.includes("localhost") ||
+  databaseUrl.includes("127.0.0.1") ||
+  databaseUrl.includes("dpg-") ||
+  databaseUrl.includes("internal");
+
+const hasSslDisable =
+  databaseUrl.includes("sslmode=disable") ||
+  databaseUrl.includes("ssl=false");
+
+const useSsl = !isLocalOrInternal && !hasSslDisable;
 
 const pool = new pg.Pool({
   connectionString: databaseUrl,
-  ...(isLocal ? {} : { ssl: { rejectUnauthorized: false } }),
+  ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
 });
 
 export default defineConfig({

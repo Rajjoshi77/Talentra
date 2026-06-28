@@ -11,13 +11,23 @@ if (!databaseUrl) {
   );
 }
 
-// Use SSL for any non-local database (required for Supabase, Render Postgres, Neon, etc.)
-const isLocal =
-  databaseUrl.includes("localhost") || databaseUrl.includes("127.0.0.1");
+// Use SSL for any non-local/non-internal database (required for Supabase, Render Postgres, Neon, etc.)
+// Disable SSL for local connections, Render internal (dpg-xxxx), internal hosts, or explicit sslmode=disable
+const isLocalOrInternal =
+  databaseUrl.includes("localhost") ||
+  databaseUrl.includes("127.0.0.1") ||
+  databaseUrl.includes("dpg-") ||
+  databaseUrl.includes("internal");
+
+const hasSslDisable =
+  databaseUrl.includes("sslmode=disable") ||
+  databaseUrl.includes("ssl=false");
+
+const useSsl = !isLocalOrInternal && !hasSslDisable;
 
 const pool = new pg.Pool({
   connectionString: databaseUrl,
-  ...(isLocal ? {} : { ssl: { rejectUnauthorized: false } }),
+  ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
 });
 
 const adapter = new PrismaPg(pool);
