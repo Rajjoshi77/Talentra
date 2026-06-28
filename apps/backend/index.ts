@@ -175,6 +175,7 @@ ${resumeText}
         message: "Internal Server Error. Please try again.",
         error: error?.message || String(error),
         stack: error?.stack || null,
+        databaseUrlUsed: maskConnectionString(process.env.DATABASE_URL || ""),
       });
     }
   });
@@ -283,6 +284,20 @@ export function cleanJsonResponse(raw: string): string {
   }
   return text.trim();
 }
+
+export function maskConnectionString(url: string): string {
+  try {
+    if (!url) return "";
+    const parsed = new URL(url);
+    if (parsed.password) {
+      parsed.password = "****";
+    }
+    return parsed.toString();
+  } catch {
+    return url.replace(/:[^:@/]+@/, ":****@");
+  }
+}
+
 
 async function callLLM(
   systemPrompt: string,
