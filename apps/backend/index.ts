@@ -3,12 +3,18 @@ import express from "express";
 import { PreInterviewBody } from "./types";
 import { scrapeGithub } from "./scrapers/github";
 import { prisma } from "./db";
+import multer from "multer";
+import { PDFParse } from "pdf-parse";
+import fs from "fs";
 
 const app = express();
-
 app.use(express.text({ type: ["application/sdp", "text/plain"] }));
 app.use(express.json());
 app.use(cors());
+
+const upload = multer({
+  dest: "uploads/",
+});
 
 export function extractGithubUsername(input: string): string {
   const trimmed = input.trim().replace(/^@/, "");
@@ -31,86 +37,145 @@ export function extractGithubUsername(input: string): string {
   return trimmed.split("/").filter(Boolean).pop() || trimmed;
 }
 
-app.post("/api/v1/pre-interview", async (req, res) => {
-  try {
-    const { success, data } = PreInterviewBody.safeParse(req.body);
-
-    if (!success) {
-      return res.status(411).json({
-        message: "Incorrect body",
-      });
-    }
-
-    const githubUsername = extractGithubUsername(data.github);
-
-    if (!githubUsername) {
-      return res.status(400).json({
-        message: "Please provide a valid GitHub username or profile URL.",
-      });
-    }
-
-    let GitHubData: any;
+app.post(
+  "/api/v1/pre-interview",
+  upload.single("resume"),
+  async (req, res) => {
     try {
-      GitHubData = await scrapeGithub(githubUsername);
-    } catch (err) {
-      console.error("Scrape Github Error:", {
-        username: githubUsername,
-        error: err,
-        ...(err as any)?.response
-          ? {
+      const parsedBody = PreInterviewBody.safeParse(req.body);
+      if (!parsedBody.success) {
+        console.error("Validation failed. Body:", req.body, "Error:", parsedBody.error);
+        return res.status(411).json({
+          message: "Incorrect body",
+        });
+      }
+      const data = parsedBody.data;
+
+      let resumeText = "";
+
+      if (req.file) {
+        try {
+          const buffer = fs.readFileSync(req.file.path);
+
+          const parser = new PDFParse({ data: new Uint8Array(buffer) });
+          const parsed = await parser.getText();
+
+          resumeText = parsed.text;
+
+          console.log("Resume Parsed:");
+          console.log(resumeText.substring(0, 500));
+        } catch (err) {
+          console.error("Resume Parse Error:", err);
+        }
+      }
+
+      let resumeData = {};
+
+      if (resumeText) {
+        const prompt = `
+Extract candidate information from this resume.
+
+Return JSON:
+
+{
+  "name":"",
+  "education":"",
+  "skills":[],
+  "experience":[],
+  "projects":[],
+  "certifications":[]
+}
+
+Resume:
+${resumeText}
+`;
+
+        const response = await callLLM(
+          "You are an expert resume parser.",
+          prompt,
+          true
+        );
+
+        if (response) {
+          try {
+            resumeData = JSON.parse(cleanJsonResponse(response));
+          } catch (err) {
+            console.error(err);
+          }
+        }
+      }
+
+      const githubUsername = extractGithubUsername(data.github);
+
+      if (!githubUsername) {
+        return res.status(400).json({
+          message: "Please provide a valid GitHub username or profile URL.",
+        });
+      }
+
+      let GitHubData: any;
+      try {
+        GitHubData = await scrapeGithub(githubUsername);
+      } catch (err) {
+        console.error("Scrape Github Error:", {
+          username: githubUsername,
+          error: err,
+          ...(err as any)?.response
+            ? {
               axiosStatus: (err as any).response?.status,
               axiosData: (err as any).response?.data,
             }
-          : {},
-      });
-      throw err;
-    }
+            : {},
+        });
+        throw err;
+      }
 
-    let interview: any;
-    try {
-      interview = await prisma.interview.create({
-        data: {
-          githubMetadata: JSON.stringify(GitHubData),
-          status: "Pre",
-        },
-      });
-    } catch (err) {
-      console.error("Prisma Create Interview Error:", {
-        interview: {
-          username: githubUsername,
-        },
-        error: err,
-      });
-      throw err;
-    }
+      let interview: any;
+      try {
+        interview = await prisma.interview.create({
+          data: {
+            githubMetadata: JSON.stringify(GitHubData),
+            resumeMetadata: JSON.stringify(resumeData),
+            status: "Pre",
+          },
+        });
+      } catch (err) {
+        console.error("Prisma Create Interview Error:", {
+          interview: {
+            username: githubUsername,
+          },
+          error: err,
+        });
+        throw err;
+      }
 
-    return res.status(200).json({
-      success: true,
-      interviewId: interview.id,
-    });
-  } catch (error: any) {
-    console.error("Pre Interview Error:", error);
+      return res.status(200).json({
+        success: true,
+        interviewId: interview.id,
+      });
+    } catch (error: any) {
+      console.error("Pre Interview Error:", error);
 
-    const errMsg = error?.message;
-    if (errMsg === "GitHub profile not found" || error?.response?.status === 404) {
-      return res.status(404).json({
+      const errMsg = error?.message;
+      if (errMsg === "GitHub profile not found" || error?.response?.status === 404) {
+        return res.status(404).json({
+          success: false,
+          message: "GitHub profile not found. Please make sure the username exists.",
+        });
+      }
+      if (errMsg === "GitHub API rate limit exceeded" || error?.response?.status === 403) {
+        return res.status(403).json({
+          success: false,
+          message: "GitHub API rate limit exceeded. Please try again later.",
+        });
+      }
+
+      return res.status(500).json({
         success: false,
-        message: "GitHub profile not found. Please make sure the username exists.",
+        message: "Internal Server Error. Please try again.",
       });
     }
-    if (errMsg === "GitHub API rate limit exceeded" || error?.response?.status === 403) {
-      return res.status(403).json({
-        success: false,
-        message: "GitHub API rate limit exceeded. Please try again later.",
-      });
-    }
-
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error. Please try again.",
-    });
-  }
-});
+  });
 
 app.post("/api/v1/session", async (req, res) => {
   try {
@@ -435,15 +500,30 @@ app.post("/api/v1/interview/:interviewId/chat", async (req, res) => {
 
     const messages = interview.conversation;
 
+    const githubInfo = typeof interview.githubMetadata === "string"
+      ? interview.githubMetadata
+      : JSON.stringify(interview.githubMetadata, null, 2);
+
+    const resumeInfo = typeof interview.resumeMetadata === "string"
+      ? interview.resumeMetadata
+      : JSON.stringify(interview.resumeMetadata, null, 2);
+
     const systemPrompt = `You are a Senior Technical Interviewer conducting a mock interview for a candidate.
-The candidate's GitHub repositories metadata is:
-${JSON.stringify(interview.githubMetadata, null, 2)}
+The candidate profile contains:
 
-Conduct a professional, interactive technical interview. 
-Ask one clear question at a time. Adapt your questions based on the candidate's answers and their technology stack shown in their GitHub metadata.
-Keep your responses short, conversational, and direct (1-3 sentences maximum), suitable for voice output.
+GitHub Metadata:
+${githubInfo}
 
-If the candidate has answered all key topics or you've exchanged 4-5 messages, tell them they can end the interview.
+Resume Metadata:
+${resumeInfo}
+
+Generate interview questions using BOTH sources.
+Focus on:
+- Projects
+- Skills
+- Internships
+- Education
+- GitHub repositories
 `;
 
     const userPrompt = `

@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import axios from "axios";
+import bgImage from "../assets/image1.png";
+
 
 interface MessageLog {
   id: string;
@@ -742,9 +744,15 @@ export default function Interview() {
   };
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-radial from-neutral-950 via-zinc-950 to-black text-slate-100 flex flex-col font-sans">
-      <div className="absolute top-10 left-10 w-[300px] h-[300px] bg-indigo-500/5 rounded-full blur-[90px] pointer-events-none" />
-      <div className="absolute bottom-10 right-10 w-[300px] h-[300px] bg-emerald-500/5 rounded-full blur-[90px] pointer-events-none" />
+    <div
+      className="relative h-screen w-screen overflow-hidden text-slate-100 flex flex-col font-sans"
+      style={{
+        backgroundImage: `radial-gradient(circle at center, rgba(15, 23, 42, 0.85) 0%, rgba(9, 9, 11, 0.98) 100%), url(${bgImage})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+
 
       <header className="relative z-10 border-b border-white/5 bg-neutral-900/40 backdrop-blur-md px-8 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -782,8 +790,8 @@ export default function Interview() {
               <div
                 ref={aiHaloRef}
                 className={`relative flex items-center justify-center p-2 rounded-[28px] border transition-all duration-100 ease-out ${aiIsSpeaking
-                  ? "border-indigo-400/40 bg-indigo-500/5"
-                  : "border-indigo-500/10 bg-neutral-950/30"
+                  ? "border-slate-400/40 bg-slate-800/10"
+                  : "border-white/5 bg-neutral-950/30"
                   }`}
               >
                 <div
@@ -837,7 +845,7 @@ export default function Interview() {
             <div className="flex flex-col items-center space-y-4">
               <div
                 ref={userHaloRef}
-                className={`relative flex items-center justify-center p-1 border border-emerald-500/10 transition-all duration-100 ease-out ${cameraOn && hasCamera ? "rounded-2xl" : "rounded-full"
+                className={`relative flex items-center justify-center p-1 border border-white/10 transition-all duration-100 ease-out ${cameraOn && hasCamera ? "rounded-2xl" : "rounded-full"
                   }`}
               >
                 {cameraOn && hasCamera ? (
@@ -856,7 +864,7 @@ export default function Interview() {
                 ) : (
                   <div
                     ref={userAvatarRef}
-                    className={`h-24 w-24 rounded-full ${isMuted ? "bg-neutral-800" : "bg-gradient-to-tr from-emerald-600 to-emerald-800"} flex items-center justify-center shadow-lg transition-transform duration-100 ease-out`}
+                    className={`h-24 w-24 rounded-full ${isMuted ? "bg-neutral-800" : "bg-slate-700"} flex items-center justify-center shadow-lg transition-transform duration-100 ease-out`}
                   >
                     {isMuted ? (
                       <MicOff className="h-10 w-10 text-neutral-400" />

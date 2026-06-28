@@ -25,6 +25,9 @@ const Github = (props: React.SVGProps<SVGSVGElement>) => (
 );
 import { toast } from "sonner"
 import axios from "axios"
+import bgImageLoading from "../assets/image2.png"
+import bgImageResult from "../assets/image3.png"
+
 
 interface Message {
   id: string;
@@ -35,6 +38,7 @@ interface Message {
 interface InterviewData {
   id: string;
   githubMetadata: string; // JSON string
+  resumeMetadata?: string | any;
   status: string;
   score: number;
   feedback: string | null;
@@ -162,6 +166,96 @@ function renderMarkdown(rawText: string): React.ReactNode {
   return <div className="space-y-1">{elements}</div>;
 }
 
+const renderResumeItem = (item: any) => {
+  if (typeof item === "string") {
+    return item;
+  }
+  if (typeof item === "object" && item !== null) {
+    const role = item.role || item.title || item.position || "";
+    const company = item.company || item.employer || item.organization || "";
+    const duration = item.duration || item.period || item.date || item.years || "";
+    const description = item.description || item.details || "";
+
+    return (
+      <div className="space-y-1 text-left">
+        <div className="flex justify-between items-start gap-2">
+          <span className="font-semibold text-slate-200 text-xs">
+            {role}{company ? ` @ ${company}` : ""}
+          </span>
+          {duration && (
+            <span className="text-[10px] text-slate-500 font-mono shrink-0 font-medium">
+              {duration}
+            </span>
+          )}
+        </div>
+        {description && (
+          <p className="text-[11px] text-slate-400 font-light leading-normal">
+            {description}
+          </p>
+        )}
+      </div>
+    );
+  }
+  return JSON.stringify(item);
+};
+
+const renderProjectItem = (item: any) => {
+  if (typeof item === "string") {
+    return item;
+  }
+  if (typeof item === "object" && item !== null) {
+    const title = item.title || item.name || "";
+    const technologies = Array.isArray(item.technologies) ? item.technologies.join(", ") : item.technologies || item.tech || "";
+    const description = item.description || item.details || "";
+
+    return (
+      <div className="space-y-1 text-left">
+        <div className="flex justify-between items-start gap-2">
+          <span className="font-semibold text-slate-200 text-xs">
+            {title}
+          </span>
+          {technologies && (
+            <span className="text-[10px] text-indigo-400 font-mono shrink-0 font-medium bg-indigo-500/5 border border-indigo-500/10 px-1.5 py-0.5 rounded">
+              {technologies}
+            </span>
+          )}
+        </div>
+        {description && (
+          <p className="text-[11px] text-slate-400 font-light leading-normal">
+            {description}
+          </p>
+        )}
+      </div>
+    );
+  }
+  return JSON.stringify(item);
+};
+
+const renderCertificationItem = (item: any) => {
+  if (typeof item === "string") {
+    return item;
+  }
+  if (typeof item === "object" && item !== null) {
+    const name = item.name || item.title || "";
+    const issuer = item.issuer || item.authority || "";
+    const date = item.date || item.year || "";
+
+    return (
+      <div className="flex justify-between items-start gap-2 text-xs text-left">
+        <span className="font-semibold text-slate-200">
+          {name}{issuer ? ` (${issuer})` : ""}
+        </span>
+        {date && (
+          <span className="text-[10px] text-slate-500 font-mono shrink-0 font-medium">
+            {date}
+          </span>
+        )}
+      </div>
+    );
+  }
+  return JSON.stringify(item);
+};
+
 export default function Result() {
   const { interviewId } = useParams();
   const navigate = useNavigate();
@@ -224,11 +318,15 @@ export default function Result() {
 
   if (loading) {
     return (
-      <div className="relative h-screen w-screen overflow-hidden bg-radial from-slate-950 via-neutral-950 to-black text-slate-100 flex flex-col justify-center items-center font-sans p-4">
-        {/* Glowing backgrounds */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none" />
-
-        <div className="relative z-10 w-full max-w-[440px] bg-neutral-900/60 backdrop-blur-2xl border border-white/10 rounded-2xl p-8 shadow-2xl text-center space-y-6">
+      <div
+        className="relative h-screen w-screen overflow-hidden text-slate-100 flex flex-col justify-center items-center font-sans p-4"
+        style={{
+          backgroundImage: `radial-gradient(circle at center, rgba(15, 23, 42, 0.75) 0%, rgba(9, 9, 11, 0.95) 100%), url(${bgImageLoading})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
+        <div className="relative z-10 w-full max-w-[440px] bg-neutral-950/85 backdrop-blur-2xl border border-white/10 rounded-2xl p-8 shadow-2xl text-center space-y-6">
           <div className="relative flex items-center justify-center">
             <Loader2 className="h-16 w-16 text-emerald-500 animate-spin" />
             <Award className="absolute h-6 w-6 text-slate-300" />
@@ -272,12 +370,15 @@ export default function Result() {
   }
 
   return (
-    <div className="min-h-screen w-screen bg-neutral-950 text-slate-100 font-sans p-6 md:p-12 overflow-y-auto">
-
-      {/* Background aesthetics */}
-      <div className="fixed top-0 left-1/4 w-[500px] h-[500px] bg-indigo-500/5 rounded-full blur-[130px] pointer-events-none" />
-      <div className="fixed bottom-0 right-1/4 w-[500px] h-[500px] bg-emerald-500/5 rounded-full blur-[130px] pointer-events-none" />
-
+    <div
+      className="min-h-screen w-screen text-slate-100 font-sans p-6 md:p-12 overflow-y-auto"
+      style={{
+        backgroundImage: `radial-gradient(circle at center, rgba(15, 23, 42, 0.85) 0%, rgba(9, 9, 11, 0.98) 100%), url(${bgImageResult})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
       <div className="relative z-10 max-w-6xl mx-auto space-y-8">
 
         {/* Navigation & Title */}
@@ -323,9 +424,9 @@ export default function Result() {
                   className="stroke-neutral-800 fill-none"
                   strokeWidth="8"
                 />
-                <circle
+                 <circle
                   cx="72" cy="72" r="62"
-                  className="stroke-emerald-500 fill-none transition-all duration-1000 ease-out"
+                  className="stroke-indigo-500 fill-none transition-all duration-1000 ease-out"
                   strokeWidth="8"
                   strokeDasharray={2 * Math.PI * 62}
                   strokeDashoffset={2 * Math.PI * 62 * (1 - data.score / 100)}
@@ -385,6 +486,116 @@ export default function Result() {
             </div>
           </div>
         </div>
+
+        {/* Resume Highlights Panel */}
+        {(() => {
+          let resumeInfo: any = null;
+          if (data && data.resumeMetadata) {
+            try {
+              resumeInfo = typeof data.resumeMetadata === "string"
+                ? JSON.parse(data.resumeMetadata)
+                : data.resumeMetadata;
+            } catch (err) {
+              console.error("Failed to parse resume metadata:", err);
+            }
+          }
+
+          if (!resumeInfo || (!resumeInfo.name && !resumeInfo.education && (!resumeInfo.skills || resumeInfo.skills.length === 0))) {
+            return null;
+          }
+
+          return (
+            <div className="bg-neutral-900/40 backdrop-blur-xl border border-white/5 rounded-2xl p-6 shadow-lg text-left">
+              <h3 className="text-slate-400 font-semibold text-sm mb-6 tracking-wider uppercase flex items-center gap-2 border-b border-white/5 pb-3">
+                <FileText className="h-4 w-4 text-emerald-400" /> Parsed Resume Highlights
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Candidate Details & Education */}
+                <div className="space-y-4">
+                  {resumeInfo.name && (
+                    <div>
+                      <span className="text-[10px] text-slate-500 uppercase tracking-widest font-mono block">Candidate Name</span>
+                      <span className="text-lg font-bold text-slate-100">{resumeInfo.name}</span>
+                    </div>
+                  )}
+
+                  {resumeInfo.education && (
+                    <div>
+                      <span className="text-[10px] text-slate-500 uppercase tracking-widest font-mono block">Education</span>
+                      <span className="text-sm text-slate-300 block leading-relaxed">{resumeInfo.education}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Skills */}
+                <div className="space-y-2 md:col-span-2">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-widest font-mono block mb-1">Key Skills Extracted</span>
+                  {resumeInfo.skills && resumeInfo.skills.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {resumeInfo.skills.map((skill: string, idx: number) => (
+                        <span key={idx} className="bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2.5 py-1 rounded-lg text-xs font-medium">
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-slate-500 text-xs italic">No skills listed in the parsed data.</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Experience / Projects / Certifications lists */}
+              {((resumeInfo.experience && resumeInfo.experience.length > 0) ||
+                (resumeInfo.projects && resumeInfo.projects.length > 0) ||
+                (resumeInfo.certifications && resumeInfo.certifications.length > 0)) && (
+                  <div className="mt-6 pt-6 border-t border-white/5 grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Experience */}
+                    {resumeInfo.experience && resumeInfo.experience.length > 0 && (
+                      <div className="space-y-2.5">
+                        <span className="text-[10px] text-slate-500 uppercase tracking-widest font-mono block">Professional Experience</span>
+                        <ul className="space-y-2">
+                          {resumeInfo.experience.map((exp: any, idx: number) => (
+                            <li key={idx} className="text-xs text-slate-300 bg-neutral-950/30 border border-white/5 rounded-lg p-2.5 leading-relaxed">
+                              {renderResumeItem(exp)}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Projects */}
+                    {resumeInfo.projects && resumeInfo.projects.length > 0 && (
+                      <div className="space-y-2.5">
+                        <span className="text-[10px] text-slate-500 uppercase tracking-widest font-mono block">Key Projects</span>
+                        <ul className="space-y-2">
+                          {resumeInfo.projects.map((proj: any, idx: number) => (
+                            <li key={idx} className="text-xs text-slate-300 bg-neutral-950/30 border border-white/5 rounded-lg p-2.5 leading-relaxed">
+                              {renderProjectItem(proj)}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Certifications */}
+                    {resumeInfo.certifications && resumeInfo.certifications.length > 0 && (
+                      <div className="space-y-2.5">
+                        <span className="text-[10px] text-slate-500 uppercase tracking-widest font-mono block">Certifications</span>
+                        <ul className="space-y-2">
+                          {resumeInfo.certifications.map((cert: any, idx: number) => (
+                            <li key={idx} className="text-xs text-slate-300 bg-neutral-950/30 border border-white/5 rounded-lg p-2.5 leading-relaxed">
+                              {renderCertificationItem(cert)}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+            </div>
+          );
+        })()}
 
         {/* Detailed Evaluation & Transcript Tabs */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">

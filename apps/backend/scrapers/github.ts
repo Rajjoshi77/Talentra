@@ -11,12 +11,11 @@ export async function scrapeGithub(username: string) {
 
   const url = `https://api.github.com/users/${username}/repos?per_page=100&sort=updated&direction=desc`;
 
-  // Try direct connection first, then proxy as fallback
   const attempts: Array<{ label: string; options: any }> = [
     { label: "direct", options: { headers } },
   ];
 
-  // Add proxy fallback if configured
+
   if (process.env.PROXY_HOST && process.env.PROXY_PORT) {
     let proxyUrl: string;
     if (process.env.PROXY_USERNAME && process.env.PROXY_PASSWORD) {
