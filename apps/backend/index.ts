@@ -173,6 +173,8 @@ ${resumeText}
       return res.status(500).json({
         success: false,
         message: "Internal Server Error. Please try again.",
+        error: error?.message || String(error),
+        stack: error?.stack || null,
       });
     }
   });
