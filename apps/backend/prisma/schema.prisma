@@ -20,6 +20,7 @@ model Interview{
   score           Int @default(0)
   feedback        String?
   conversation  Message[]
+  role            String?
 }
 
 model Message{

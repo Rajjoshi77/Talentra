@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import axios from "axios";
 import { BACKEND_URL } from "@/lib/config";
 import { useNavigate } from "react-router";
-import { Play, Loader2, Sparkles, Terminal } from "lucide-react";
+import { Play, Loader2, Sparkles, Terminal, Code, Brain, Layers, Monitor, Server } from "lucide-react";
 import bgImage from "../assets/image.png";
 
 
@@ -40,12 +40,56 @@ const normalizeGithubProfile = (input: string) => {
   return `https://github.com/${value}`;
 };
 
+const ROLES = [
+  {
+    key: "Software Engineer",
+    title: "Software Engineer",
+    description: "Algorithms, DSA, clean code",
+    icon: Code,
+    color: "from-blue-500 to-indigo-500",
+    glow: "rgba(59, 130, 246, 0.15)",
+  },
+  {
+    key: "AI Engineer",
+    title: "AI Engineer",
+    description: "LLMs, RAG, ML, APIs",
+    icon: Brain,
+    color: "from-purple-500 to-fuchsia-500",
+    glow: "rgba(168, 85, 247, 0.15)",
+  },
+  {
+    key: "Full Stack Engineer",
+    title: "Full Stack/Web",
+    description: "React, Node, DBs, Architectures",
+    icon: Layers,
+    color: "from-emerald-500 to-teal-500",
+    glow: "rgba(16, 185, 129, 0.15)",
+  },
+  {
+    key: "Frontend Engineer",
+    title: "Frontend",
+    description: "React, CSS, browser APIs, UX",
+    icon: Monitor,
+    color: "from-pink-500 to-rose-500",
+    glow: "rgba(236, 72, 153, 0.15)",
+  },
+  {
+    key: "Backend Engineer",
+    title: "Backend",
+    description: "Scale, DB, security, Docker",
+    icon: Server,
+    color: "from-amber-500 to-orange-500",
+    glow: "rgba(245, 158, 11, 0.15)",
+  },
+];
+
 const Form = () => {
   const [gitInput, setGitInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const navigate = useNavigate();
   const [resume, setResume] = useState<File | null>(null);
+  const [selectedRole, setSelectedRole] = useState("Software Engineer");
 
   const loadingSteps = [
     "Analyzing GitHub profile...",
@@ -91,6 +135,7 @@ const Form = () => {
       );
 
       formData.append("github", githubUrl);
+      formData.append("role", selectedRole);
 
       if (resume) {
         formData.append("resume", resume);
@@ -133,8 +178,8 @@ const Form = () => {
         backgroundPosition: "center",
       }}
     >
-      <div className="relative z-10 w-full max-w-[480px] bg-neutral-950/85 backdrop-blur-2xl border border-white/10 rounded-2xl p-8 shadow-[0_4px_30px_rgba(0,0,0,0.4)] transition-all duration-500">
-        <div className="text-center mb-8">
+      <div className="relative z-10 w-full max-w-[560px] bg-neutral-950/85 backdrop-blur-2xl border border-white/10 rounded-2xl p-8 shadow-[0_4px_30px_rgba(0,0,0,0.4)] transition-all duration-500">
+        <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center p-3 bg-slate-800/80 border border-white/10 rounded-xl mb-4 shadow-sm">
             <Sparkles className="h-7 w-7 text-indigo-400" />
           </div>
@@ -173,20 +218,65 @@ const Form = () => {
             </div>
           </div>
         ) : (
-          <form onSubmit={onSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-300 flex items-center gap-1.5 px-0.5">
-                <Github className="h-4 w-4" /> GitHub Username or Profile
+          <form onSubmit={onSubmit} className="space-y-5">
+            {/* Job Role Cards Selection */}
+            <div className="space-y-3">
+              <label className="text-xs font-semibold tracking-wider uppercase text-slate-400 flex items-center gap-1.5 px-0.5">
+                <Sparkles className="h-3.5 w-3.5 text-indigo-400 animate-pulse" /> Select Practice Track
               </label>
-              <div className="relative flex items-center">
-                <Input
-                  placeholder="e.g., torvalds or github.com/torvalds"
-                  value={gitInput}
-                  onChange={(e) => setGitInput(e.target.value)}
-                  disabled={loading}
-                  className="bg-black/40 border-neutral-800 focus-visible:border-indigo-500 focus-visible:ring-indigo-500/20 text-slate-100 placeholder-slate-600 h-12 rounded-xl text-base px-4 pr-10"
-                />
+              <div className="grid grid-cols-2 gap-2.5">
+                {ROLES.map((role) => {
+                  const IconComponent = role.icon;
+                  const isSelected = selectedRole === role.key;
+                  return (
+                    <button
+                      key={role.key}
+                      type="button"
+                      onClick={() => setSelectedRole(role.key)}
+                      className={`flex items-start gap-3 text-left p-3 rounded-xl border transition-all duration-300 cursor-pointer ${
+                        role.key === "Backend Engineer" ? "col-span-2" : "col-span-1"
+                      } ${
+                        isSelected
+                          ? "bg-slate-900/40 border-indigo-500/70"
+                          : "bg-black/20 border-neutral-900 hover:border-neutral-800 hover:bg-neutral-950/20"
+                      }`}
+                      style={
+                        isSelected
+                          ? {
+                              boxShadow: `0 0 15px ${role.glow}`,
+                            }
+                          : {}
+                      }
+                    >
+                      <div className={`p-1.5 rounded-lg bg-gradient-to-br ${role.color} text-white shrink-0 shadow-md`}>
+                        <IconComponent className="h-4 w-4" />
+                      </div>
+                      <div className="space-y-0.5 min-w-0">
+                        <div className="font-bold text-xs text-slate-100 truncate">{role.title}</div>
+                        <div className="text-[10px] text-slate-500 leading-tight font-medium line-clamp-2">{role.description}</div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
+            </div>
+
+            <div className="space-y-4 pt-4 border-t border-white/5">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-300 flex items-center gap-1.5 px-0.5">
+                  <Github className="h-4 w-4" /> GitHub Username or Profile
+                </label>
+                <div className="relative flex items-center">
+                  <Input
+                    placeholder="e.g., torvalds or github.com/torvalds"
+                    value={gitInput}
+                    onChange={(e) => setGitInput(e.target.value)}
+                    disabled={loading}
+                    className="bg-black/40 border-neutral-800 focus-visible:border-indigo-500 focus-visible:ring-indigo-500/20 text-slate-100 placeholder-slate-600 h-12 rounded-xl text-base px-4 pr-10"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-300 px-0.5">
                   Resume (PDF/DOCX)
@@ -215,9 +305,8 @@ const Form = () => {
                   </div>
                 )}
               </div>
-              <p className="text-slate-500 text-xs px-0.5 font-light">
-                We'll scrape your public repos and parse Resume to tailor backend, frontend, or
-                systems questions based on your actual stack.
+              <p className="text-slate-500 text-[11px] px-0.5 font-light leading-normal">
+                We'll scrape your public repos and parse your Resume to tailor custom questions matching your selected role track.
               </p>
             </div>
 

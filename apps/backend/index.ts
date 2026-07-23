@@ -53,9 +53,10 @@ app.post(
 
       let resumeText = "";
 
-      if (req.file) {
+      const file = (req as any).file;
+      if (file) {
         try {
-          const buffer = fs.readFileSync(req.file.path);
+          const buffer = fs.readFileSync(file.path);
 
           const parser = new PDFParse({ data: new Uint8Array(buffer) });
           const parsed = await parser.getText();
@@ -137,6 +138,7 @@ ${resumeText}
             githubMetadata: JSON.stringify(GitHubData),
             resumeMetadata: JSON.stringify(resumeData),
             status: "Pre",
+            role: data.role || "Software Engineer",
           },
         });
       } catch (err) {
@@ -176,6 +178,7 @@ ${resumeText}
         error: error?.message || String(error),
         stack: error?.stack || null,
         databaseUrlUsed: maskConnectionString(process.env.DATABASE_URL || ""),
+        passwordInfo: getPasswordInfo(process.env.DATABASE_URL || ""),
       });
     }
   });
@@ -295,6 +298,18 @@ export function maskConnectionString(url: string): string {
     return parsed.toString();
   } catch {
     return url.replace(/:[^:@/]+@/, ":****@");
+  }
+}
+
+export function getPasswordInfo(url: string): string {
+  try {
+    if (!url) return "no url";
+    const parsed = new URL(url);
+    const pass = parsed.password;
+    if (!pass) return "no password";
+    return `len: ${pass.length}, start: ${pass.substring(0, 3)}, end: ${pass.substring(pass.length - 3)}`;
+  } catch {
+    return "parse error";
   }
 }
 
@@ -502,6 +517,49 @@ async function callLLM(
   return "";
 }
 
+const JOB_DESCRIPTIONS: Record<string, { title: string; jd: string; rules: string[] }> = {
+  "Software Engineer": {
+    title: "Software Engineer",
+    jd: "General Software Engineer role focusing on core data structures, algorithms, coding best practices, and general software development methodologies.",
+    rules: [
+      "Ask questions focusing on problem-solving, algorithms, system architecture, design patterns, and clean code principles.",
+      "Check their familiarity with general testing and software life cycles.",
+    ]
+  },
+  "AI Engineer": {
+    title: "AI Engineer",
+    jd: "AI/ML Engineer role focusing on Large Language Models, prompt engineering, RAG pipelines, model deployment, fine-tuning, and AI-powered systems.",
+    rules: [
+      "Focus questions on machine learning pipelines, LLM APIs, embeddings, vector databases, model performance, and handling context limits.",
+      "Evaluate their hands-on experience with modern AI agent workflows, prompt tuning, and AI integration architectures.",
+    ]
+  },
+  "Full Stack Engineer": {
+    title: "Full Stack Engineer",
+    jd: "Full Stack Engineer role requiring proficiency in both web user interfaces (React, styling) and server-side logic (APIs, databases, system security, caching).",
+    rules: [
+      "Ask questions covering frontend architectures, responsive design, backend API endpoints, relational/non-relational databases, and full stack deployment.",
+      "Test their understanding of end-to-end data flow, client-server performance, and middleware.",
+    ]
+  },
+  "Frontend Engineer": {
+    title: "Frontend Engineer",
+    jd: "Frontend Engineer role focusing on interactive interfaces, component styling, state management, browser performance, and native Web APIs.",
+    rules: [
+      "Ask about CSS layouts (flexbox/grid), React rendering, component hooks, global/local state management, and asset optimization.",
+      "Explore knowledge of browser capabilities (like WebRTC media streams, Audio Context APIs, or Speech Synthesis/Recognition fallbacks).",
+    ]
+  },
+  "Backend Engineer": {
+    title: "Backend Engineer",
+    jd: "Backend Engineer role focusing on server reliability, scalable API design, database schemas, message queues, and architectural infrastructure.",
+    rules: [
+      "Focus questions on database normalization, indexing, query optimizations, caching strategies, containerization (Docker), security, and server scaling patterns.",
+      "Test their ability to build robust error handling, authorization systems, and CI/CD pipelines.",
+    ]
+  }
+};
+
 app.post("/api/v1/interview/:interviewId/chat", async (req, res) => {
   try {
     const { interviewId } = req.params;
@@ -525,7 +583,17 @@ app.post("/api/v1/interview/:interviewId/chat", async (req, res) => {
       ? interview.resumeMetadata
       : JSON.stringify(interview.resumeMetadata, null, 2);
 
-    const systemPrompt = `You are a Senior Technical Interviewer conducting a mock interview for a candidate.
+    const roleKey = interview.role || "Software Engineer";
+    const roleConfig = (JOB_DESCRIPTIONS[roleKey] || JOB_DESCRIPTIONS["Software Engineer"])!;
+
+    const systemPrompt = `You are a Senior Technical Interviewer conducting a mock interview for a candidate for the role of ${roleConfig.title}.
+
+Job Description:
+${roleConfig.jd}
+
+Guidelines/Focus Areas for this interview:
+${roleConfig.rules.map(rule => `- ${rule}`).join("\n")}
+
 The candidate profile contains:
 
 GitHub Metadata:
@@ -536,6 +604,7 @@ ${resumeInfo}
 
 Generate interview questions using BOTH sources.
 Focus on:
+- How their skills and repositories relate to the selected role (${roleConfig.title}).
 - Projects
 - Skills
 - Internships
@@ -602,14 +671,18 @@ app.post("/api/v1/interview/:interviewId/evaluate", async (req, res) => {
       });
     }
 
-    const systemPrompt = `You are a Senior Technical Interviewer and Engineering Manager conducting a professional technical evaluation.
+    const roleKey = interview.role || "Software Engineer";
+    const roleConfig = (JOB_DESCRIPTIONS[roleKey] || JOB_DESCRIPTIONS["Software Engineer"])!;
+
+    const systemPrompt = `You are a Senior Technical Interviewer and Engineering Manager conducting a professional technical evaluation for the role of ${roleConfig.title}.
 Based on the candidate's GitHub repositories metadata and the transcript of their verbal technical interview, produce a comprehensive, structured performance scorecard.
+The evaluation and score weighting should reflect expectations for a candidate applying to a ${roleConfig.title} role (Job Description: ${roleConfig.jd}).
 
 Provide evaluation across these exact 5 core factors:
 1. **GitHub Code Quality & Portfolio (20% weight)**: Analysis of repository cleanliness, stack modernism, commits, star rating, and documentation.
-2. **Technical Depth & Accuracy (30% weight)**: Verification of candidate's knowledge of frontend/backend principles, library usage, and frameworks discussed.
-3. **Problem-Solving & System Design (20% weight)**: Candidate's ability to explain architectural choices, project structures (like how frontend connects to backend), state management, and performance optimizations.
-4. **Testing, Automation & CI/CD (15% weight)**: Focus on presence of test suites (Jest, Cypress), linting/formatting pipelines, and GitHub Action workflows.
+2. **Technical Depth & Accuracy (30% weight)**: Verification of candidate's knowledge of principles, libraries, and frameworks relevant to a ${roleConfig.title}.
+3. **Problem-Solving & System Design (20% weight)**: Candidate's ability to explain architectural choices, project structures, state management, and performance optimizations.
+4. **Testing, Automation & CI/CD (15% weight)**: Focus on presence of test suites, linting/formatting pipelines, and CI/CD workflows.
 5. **Verbal Communication & Professionalism (15% weight)**: Clarity, structured technical explanations, and technical vocabulary usage during the session.
 
 Format your response as a JSON object with this exact structure:
@@ -705,7 +778,11 @@ ${interview.conversation.map((m: any) => `${m.type}: ${m.message}`).join("\n")}
         .map((entry) => entry[0])
         .join(", ") || "TypeScript, JavaScript";
 
+    const roleKey = interview.role || "Software Engineer";
+
     const feedback = `## Talentra Evaluation Report (Local Assessment Engine)
+
+**Job Role Track**: ${roleKey}
 
 This scorecard was compiled based on your GitHub portfolio metadata and session transcript analysis.
 
