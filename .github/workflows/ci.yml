@@ -23,6 +23,8 @@ jobs:
         run: bun install
 
       - name: Run Workspace Tests
+        env:
+          DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
         run: bun run test
 
       - name: Check TypeScript Compilation
