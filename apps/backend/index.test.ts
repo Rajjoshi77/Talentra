@@ -3,7 +3,7 @@ import {
   cleanJsonResponse,
   extractGithubUsername,
   getTimeoutSignal,
-} from "./index";
+} from "./helpers";
 
 describe("Backend Helpers", () => {
   describe("cleanJsonResponse", () => {
