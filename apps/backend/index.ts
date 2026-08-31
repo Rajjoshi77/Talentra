@@ -1,3 +1,4 @@
+import "dotenv/config";
 import cors from "cors";
 import express from "express";
 import { PreInterviewBody } from "./types";
@@ -260,10 +261,11 @@ Keep your questions concise and conversational since this is a voice interview. 
     fd.set("sdp", req.body);
     fd.set("session", sessionConfig);
 
+    const openaiKey = process.env.OPENAI_KEY || process.env.OPENAI_API_KEY;
     const response = await fetch("https://api.openai.com/v1/realtime/calls", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.OPENAI_KEY}`,
+        Authorization: `Bearer ${openaiKey}`,
         "OpenAI-Safety-Identifier": "hashed-user-id",
       },
       body: fd,
@@ -337,9 +339,10 @@ async function callLLM(
   userPrompt: string,
   isJson: boolean = false,
 ): Promise<string> {
-  if (process.env.GEMINI_API_KEY) {
+  const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (geminiKey) {
     try {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
       const response = await fetch(geminiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -375,7 +378,8 @@ async function callLLM(
     }
   }
 
-  if (process.env.GROQ_API_KEY) {
+  const groqKey = process.env.GROQ_API_KEY;
+  if (groqKey) {
     try {
       const response = await fetch(
         "https://api.groq.com/openai/v1/chat/completions",
@@ -383,7 +387,7 @@ async function callLLM(
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+            Authorization: `Bearer ${groqKey}`,
           },
           body: JSON.stringify({
             model: isJson ? "llama-3.3-70b-versatile" : "llama-3.1-8b-instant",
@@ -413,7 +417,8 @@ async function callLLM(
     }
   }
 
-  if (process.env.OPENROUTER_API_KEY) {
+  const openrouterKey = process.env.OPENROUTER_API_KEY;
+  if (openrouterKey) {
     try {
       const response = await fetch(
         "https://openrouter.ai/api/v1/chat/completions",
@@ -421,10 +426,10 @@ async function callLLM(
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            Authorization: `Bearer ${openrouterKey}`,
           },
           body: JSON.stringify({
-            model: "meta-llama/llama-3-8b-instruct:free",
+            model: "meta-llama/llama-3.3-70b-instruct:free",
             messages: [
               { role: "system", content: systemPrompt },
               { role: "user", content: userPrompt },
@@ -495,7 +500,8 @@ async function callLLM(
     // Local Ollama is optional.
   }
 
-  if (process.env.OPENAI_KEY && !process.env.OPENAI_KEY.startsWith("dummy")) {
+  const openaiKey = process.env.OPENAI_KEY || process.env.OPENAI_API_KEY;
+  if (openaiKey && !openaiKey.startsWith("dummy")) {
     try {
       const response = await fetch(
         "https://api.openai.com/v1/chat/completions",
@@ -503,7 +509,7 @@ async function callLLM(
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${process.env.OPENAI_KEY}`,
+            Authorization: `Bearer ${openaiKey}`,
           },
           body: JSON.stringify({
             model: isJson ? "gpt-4o" : "gpt-4o-mini",
