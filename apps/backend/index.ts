@@ -162,7 +162,7 @@ ${resumeText}
           message: "GitHub profile not found. Please make sure the username exists.",
         });
       }
-      if (errMsg && errMsg.includes("rate limit") || error?.response?.status === 403) {
+      if ((typeof errMsg === 'string' && errMsg.includes("rate limit")) || error?.response?.status === 403) {
         return res.status(403).json({
           success: false,
           message: "GitHub API rate limit exceeded. Please try again later.",
