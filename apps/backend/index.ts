@@ -180,9 +180,71 @@ ${resumeText}
 
 app.post("/api/v1/session", async (req, res) => {
   try {
+    const { interviewId } = req.query as { interviewId?: string };
+
+    // Build a context-aware system prompt if we have an interviewId
+    let instructions = "You are a Senior Technical Interviewer conducting a professional mock interview. Ask relevant technical questions, listen carefully to the candidate's answers, and follow up with deeper probing questions based on their responses. Do not repeat questions you have already asked.";
+
+    if (interviewId) {
+      try {
+        const interview = await prisma.interview.findUnique({
+          where: { id: interviewId },
+          include: { conversation: { orderBy: { createdAt: "asc" } } },
+        });
+
+        if (interview) {
+          const roleKey = interview.role || "Software Engineer";
+          const roleConfig = (JOB_DESCRIPTIONS[roleKey] || JOB_DESCRIPTIONS["Software Engineer"])!;
+
+          const githubInfo = typeof interview.githubMetadata === "string"
+            ? interview.githubMetadata
+            : JSON.stringify(interview.githubMetadata, null, 2);
+
+          const resumeInfo = typeof interview.resumeMetadata === "string"
+            ? interview.resumeMetadata
+            : JSON.stringify(interview.resumeMetadata, null, 2);
+
+          // Include any prior conversation so the AI doesn't repeat questions
+          const priorConversation = interview.conversation.length > 0
+            ? `\n\nConversation so far:\n${interview.conversation.map((m: any) => `${m.type === "User" ? "Candidate" : "Interviewer"}: ${m.message}`).join("\n")}\n\nDo NOT repeat any of the questions already asked above. Continue the interview naturally from where it left off.`
+            : "";
+
+          instructions = `You are a Senior Technical Interviewer conducting a professional mock interview for the role of ${roleConfig.title}.
+
+Job Description:
+${roleConfig.jd}
+
+Guidelines/Focus Areas for this interview:
+${roleConfig.rules.map((rule: string) => `- ${rule}`).join("\n")}
+
+The candidate profile contains:
+
+GitHub Metadata:
+${githubInfo}
+
+Resume Metadata:
+${resumeInfo}
+
+Generate interview questions using BOTH sources.
+Focus on:
+- How their skills and repositories relate to the selected role (${roleConfig.title}).
+- Projects
+- Skills
+- Internships
+- Education
+- GitHub repositories
+
+Keep your questions concise and conversational since this is a voice interview. Ask one question at a time. Wait for the candidate to finish speaking before asking the next question. Do NOT repeat questions.${priorConversation}`;
+        }
+      } catch (err) {
+        console.warn("Could not fetch interview for session context:", err);
+      }
+    }
+
     const sessionConfig = JSON.stringify({
       type: "realtime",
       model: "gpt-4o-realtime-preview-2024-12-17",
+      instructions,
       audio: {
         output: {
           voice: "echo",
