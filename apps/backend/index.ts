@@ -339,123 +339,145 @@ async function callLLM(
   userPrompt: string,
   isJson: boolean = false,
 ): Promise<string> {
+  // 1. Google Gemini (Try gemini-2.0-flash, then gemini-1.5-flash)
   const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (geminiKey) {
-    try {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
-      const response = await fetch(geminiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }],
+    const geminiModels = ["gemini-2.0-flash", "gemini-1.5-flash"];
+    for (const model of geminiModels) {
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey.trim()}`;
+        const response = await fetch(geminiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: "user",
+                parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }],
+              },
+            ],
+            generationConfig: {
+              temperature: isJson ? 0.2 : 0.7,
+              ...(isJson ? { responseMimeType: "application/json" } : {}),
             },
-          ],
-          generationConfig: {
-            temperature: isJson ? 0.2 : 0.7,
-            responseMimeType: isJson ? "application/json" : "text/plain",
-          },
-        }),
-        signal: getTimeoutSignal(12000),
-      });
+          }),
+          signal: getTimeoutSignal(12000),
+        });
 
-      if (response.ok) {
-        const resData = (await response.json()) as any;
-        const content =
-          resData.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        if (content.trim()) return content;
-      } else {
-        console.error(
-          "Gemini API error status:",
-          response.status,
-          await response.text(),
-        );
+        if (response.ok) {
+          const resData = (await response.json()) as any;
+          const content =
+            resData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          if (content.trim()) return content;
+        } else {
+          console.warn(
+            `Gemini (${model}) returned status:`,
+            response.status,
+            await response.text(),
+          );
+        }
+      } catch (err) {
+        console.warn(`Gemini (${model}) call failed:`, err);
       }
-    } catch (err) {
-      console.error("Gemini call failed:", err);
     }
   }
 
+  // 2. Groq Cloud
   const groqKey = process.env.GROQ_API_KEY;
   if (groqKey) {
-    try {
-      const response = await fetch(
-        "https://api.groq.com/openai/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${groqKey}`,
+    const groqModels = isJson
+      ? ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+      : ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
+    for (const model of groqModels) {
+      try {
+        const response = await fetch(
+          "https://api.groq.com/openai/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${groqKey.trim()}`,
+            },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt },
+              ],
+              response_format: isJson ? { type: "json_object" } : undefined,
+              temperature: isJson ? 0.2 : 0.7,
+            }),
+            signal: getTimeoutSignal(15000),
           },
-          body: JSON.stringify({
-            model: isJson ? "llama-3.3-70b-versatile" : "llama-3.1-8b-instant",
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userPrompt },
-            ],
-            response_format: isJson ? { type: "json_object" } : undefined,
-            temperature: isJson ? 0.2 : 0.7,
-          }),
-          signal: getTimeoutSignal(15000),
-        },
-      );
-      if (response.ok) {
-        const resData = (await response.json()) as any;
-        const content = resData.choices?.[0]?.message?.content || "";
-        if (content.trim()) return content;
-      } else {
-        console.error(
-          "Groq API error status:",
-          response.status,
-          await response.text(),
         );
+        if (response.ok) {
+          const resData = (await response.json()) as any;
+          const content = resData.choices?.[0]?.message?.content || "";
+          if (content.trim()) return content;
+        } else {
+          console.warn(
+            `Groq (${model}) returned status:`,
+            response.status,
+            await response.text(),
+          );
+        }
+      } catch (err) {
+        console.warn(`Groq (${model}) call failed:`, err);
       }
-    } catch (err) {
-      console.error("Groq call failed:", err);
     }
   }
 
+  // 3. OpenRouter (Supports free & paid models)
   const openrouterKey = process.env.OPENROUTER_API_KEY;
   if (openrouterKey) {
-    try {
-      const response = await fetch(
-        "https://openrouter.ai/api/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${openrouterKey}`,
+    const orModels = [
+      "meta-llama/llama-3.3-70b-instruct:free",
+      "google/gemini-2.0-flash-exp:free",
+      "mistralai/mistral-7b-instruct:free",
+      "openrouter/auto",
+    ];
+    for (const model of orModels) {
+      try {
+        const response = await fetch(
+          "https://openrouter.ai/api/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${openrouterKey.trim()}`,
+              "HTTP-Referer": "https://talentra.ai",
+              "X-Title": "Talentra AI Interviewer",
+            },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt },
+              ],
+              response_format: isJson ? { type: "json_object" } : undefined,
+              temperature: isJson ? 0.2 : 0.7,
+            }),
+            signal: getTimeoutSignal(20000),
           },
-          body: JSON.stringify({
-            model: "meta-llama/llama-3.3-70b-instruct:free",
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userPrompt },
-            ],
-            response_format: isJson ? { type: "json_object" } : undefined,
-            temperature: isJson ? 0.2 : 0.7,
-          }),
-          signal: getTimeoutSignal(20000),
-        },
-      );
-      if (response.ok) {
-        const resData = (await response.json()) as any;
-        const content = resData.choices?.[0]?.message?.content || "";
-        if (content.trim()) return content;
-      } else {
-        console.error(
-          "OpenRouter API error status:",
-          response.status,
-          await response.text(),
         );
+        if (response.ok) {
+          const resData = (await response.json()) as any;
+          const content = resData.choices?.[0]?.message?.content || "";
+          if (content.trim()) return content;
+        } else {
+          console.warn(
+            `OpenRouter (${model}) returned status:`,
+            response.status,
+            await response.text(),
+          );
+        }
+      } catch (err) {
+        console.warn(`OpenRouter (${model}) call failed:`, err);
       }
-    } catch (err) {
-      console.error("OpenRouter call failed:", err);
     }
   }
 
+  // 4. Local Ollama (if available)
   const ollamaBaseUrl = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
   try {
     const tagsRes = await fetch(`${ollamaBaseUrl}/api/tags`, {
@@ -487,12 +509,6 @@ async function callLLM(
           const resData = (await chatRes.json()) as any;
           const content = resData.message?.content || "";
           if (content.trim()) return content;
-        } else {
-          console.error(
-            "Ollama API returned status:",
-            chatRes.status,
-            await chatRes.text(),
-          );
         }
       }
     }
@@ -500,46 +516,82 @@ async function callLLM(
     // Local Ollama is optional.
   }
 
+  // 5. OpenAI
   const openaiKey = process.env.OPENAI_KEY || process.env.OPENAI_API_KEY;
   if (openaiKey && !openaiKey.startsWith("dummy")) {
-    try {
-      const response = await fetch(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${openaiKey}`,
+    const oaiModels = isJson ? ["gpt-4o-mini", "gpt-4o"] : ["gpt-4o-mini", "gpt-4o"];
+    for (const model of oaiModels) {
+      try {
+        const response = await fetch(
+          "https://api.openai.com/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${openaiKey.trim()}`,
+            },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt },
+              ],
+              response_format: isJson ? { type: "json_object" } : undefined,
+            }),
+            signal: getTimeoutSignal(20000),
           },
-          body: JSON.stringify({
-            model: isJson ? "gpt-4o" : "gpt-4o-mini",
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userPrompt },
-            ],
-            response_format: isJson ? { type: "json_object" } : undefined,
-          }),
-          signal: getTimeoutSignal(20000),
-        },
-      );
-      if (response.ok) {
-        const resData = (await response.json()) as any;
-        const content = resData.choices?.[0]?.message?.content || "";
-        if (content.trim()) return content;
-      } else {
-        console.error(
-          "OpenAI API returned status:",
-          response.status,
-          await response.text(),
         );
+        if (response.ok) {
+          const resData = (await response.json()) as any;
+          const content = resData.choices?.[0]?.message?.content || "";
+          if (content.trim()) return content;
+        } else {
+          console.warn(
+            `OpenAI (${model}) returned status:`,
+            response.status,
+            await response.text(),
+          );
+        }
+      } catch (err) {
+        console.warn(`OpenAI (${model}) call failed:`, err);
       }
-    } catch (err) {
-      console.error("OpenAI call failed:", err);
     }
   }
 
   return "";
 }
+
+// Health check endpoint to diagnose API keys on Render / local
+app.get("/api/v1/health-llm", async (_req, res) => {
+  const geminiKey = !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
+  const groqKey = !!process.env.GROQ_API_KEY;
+  const openrouterKey = !!process.env.OPENROUTER_API_KEY;
+  const openaiKey = !!(process.env.OPENAI_KEY || process.env.OPENAI_API_KEY);
+
+  let testResult = "Not tested";
+  try {
+    const testResponse = await callLLM(
+      "You are a helpful assistant.",
+      "Reply with the single word: WORKING",
+      false,
+    );
+    testResult = testResponse.trim() || "Failed: No LLM responded";
+  } catch (e: any) {
+    testResult = `Error: ${e.message}`;
+  }
+
+  return res.json({
+    status: "ok",
+    keysDetected: {
+      gemini: geminiKey,
+      groq: groqKey,
+      openrouter: openrouterKey,
+      openai: openaiKey,
+    },
+    liveLLMTest: testResult,
+    timestamp: new Date().toISOString(),
+  });
+});
 
 const JOB_DESCRIPTIONS: Record<string, { title: string; jd: string; rules: string[] }> = {
   "Software Engineer": {
@@ -645,16 +697,34 @@ Please generate the interviewer's next response:
 
     let reply = await callLLM(systemPrompt, userPrompt, false);
 
-    if (!reply) {
+    // If LLM call fails, dynamically generate a contextual question using candidate's actual GitHub repos and role
+    if (!reply || !reply.trim()) {
+      console.warn(`[Interview ${interviewId}] All LLMs failed. Using dynamic profile-based fallback.`);
       const qIndex = messages.filter((m: any) => m.type === "Assistant").length;
-      const fallbackQuestions = [
-        "Could you describe the general architecture and library choices of your primary project?",
-        "How do you usually handle application state management and asset performance optimizations?",
-        "What is your experience with writing test coverage (like unit and integration tests) and configuring CI/CD automation?",
-        "Thank you for sharing your background! I've logged your answers. Please click 'End & Review' below to evaluate your final report.",
+
+      // Parse candidate's actual top repos
+      let topRepos: Array<{ name: string; language?: string; description?: string }> = [];
+      try {
+        const parsedGithub = typeof interview.githubMetadata === "string"
+          ? JSON.parse(interview.githubMetadata)
+          : interview.githubMetadata;
+        if (Array.isArray(parsedGithub) && parsedGithub.length > 0) {
+          topRepos = parsedGithub;
+        }
+      } catch (e) { }
+
+      const primaryRepo = topRepos[0]?.name || "your featured repository";
+      const secondaryRepo = topRepos[1]?.name || topRepos[0]?.name || "your projects";
+      const primaryLang = topRepos[0]?.language || "your primary tech stack";
+
+      const dynamicQuestions = [
+        `Welcome to your technical interview for the ${roleConfig.title} role! I reviewed your GitHub portfolio and noticed your project "${primaryRepo}" built with ${primaryLang}. Could you give me a walkthrough of its architecture and why you chose that stack?`,
+        `That's insightful. In your project "${secondaryRepo}", how did you design data flow, manage application state, and optimize performance under scale?`,
+        `For a ${roleConfig.title} position, robust testing and deployment are critical. What has been your approach to writing automated unit/integration tests and setting up CI/CD pipelines in your repositories?`,
+        `Thank you for sharing your experience today! I have gathered all the insights needed for your evaluation. Please click 'End & Review' below to evaluate your final report and scorecard.`,
       ];
-      reply =
-        fallbackQuestions[Math.min(qIndex, fallbackQuestions.length - 1)]!;
+
+      reply = dynamicQuestions[Math.min(qIndex, dynamicQuestions.length - 1)]!;
     }
 
     reply = reply.trim();
