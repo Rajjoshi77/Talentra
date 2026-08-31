@@ -18,7 +18,6 @@ const upload = multer({
 
 export function extractGithubUsername(input: string): string {
   const trimmed = input.trim().replace(/^@/, "");
-
   try {
     const candidate = trimmed.startsWith("http")
       ? trimmed
@@ -58,11 +57,10 @@ app.post(
         try {
           const buffer = fs.readFileSync(file.path);
 
-          const parser = new PDFParse({ data: new Uint8Array(buffer) });
+          const parser = new PDFParse({ data: new Uint8Array(buffer)});
           const parsed = await parser.getText();
 
           resumeText = parsed.text;
-
           console.log("Resume Parsed:");
           console.log(resumeText.substring(0, 500));
         } catch (err) {
@@ -90,7 +88,6 @@ Return JSON:
 Resume:
 ${resumeText}
 `;
-
         const response = await callLLM(
           "You are an expert resume parser.",
           prompt,
@@ -165,7 +162,7 @@ ${resumeText}
           message: "GitHub profile not found. Please make sure the username exists.",
         });
       }
-      if (errMsg === "GitHub API rate limit exceeded" || error?.response?.status === 403) {
+      if (errMsg && errMsg.includes("rate limit") || error?.response?.status === 403) {
         return res.status(403).json({
           success: false,
           message: "GitHub API rate limit exceeded. Please try again later.",
@@ -312,7 +309,6 @@ export function getPasswordInfo(url: string): string {
     return "parse error";
   }
 }
-
 
 async function callLLM(
   systemPrompt: string,
