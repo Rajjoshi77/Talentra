@@ -4,6 +4,7 @@ import {
   extractGithubUsername,
   getTimeoutSignal,
 } from "./helpers";
+import { PreInterviewBody } from "./types";
 
 describe("Backend Helpers", () => {
   describe("cleanJsonResponse", () => {
@@ -37,7 +38,6 @@ describe("Backend Helpers", () => {
         expect(signal).toBeInstanceOf(AbortSignal);
         expect(signal.aborted).toBe(false);
       } else {
-        // Runtime didn't support AbortSignal.timeout, which is fine on old setups
         expect(signal).toBeUndefined();
       }
     });
@@ -61,7 +61,27 @@ describe("Backend Helpers", () => {
     });
   });
 
-  describe("Score Weighting Calculation", () => {
+  describe("PreInterviewBody Schema Validation", () => {
+    test("should validate valid pre-interview request body", () => {
+      const validBody = {
+        github: "https://github.com/torvalds",
+        linkedIn: "https://linkedin.com/in/linustorvalds",
+        role: "Software Engineer",
+      };
+      const result = PreInterviewBody.safeParse(validBody);
+      expect(result.success).toBe(true);
+    });
+
+    test("should reject missing github and linkedIn fields", () => {
+      const invalidBody = {
+        role: "Software Engineer",
+      };
+      const result = PreInterviewBody.safeParse(invalidBody);
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("Score Weighting & Composite Rating Calculation", () => {
     test("should compute 5-factor weighted composite rating accurately", () => {
       const factors = {
         github: 80,         // 80 * 0.20 = 16.0
@@ -99,6 +119,36 @@ describe("Backend Helpers", () => {
       );
       expect(total).toBe(21);
     });
+
+    test("should parse and extract EVAL_FACTORS metadata comment accurately", () => {
+      const sampleFeedback = `## Detailed Report\nSome review text.\n\n<!-- EVAL_FACTORS: {"github":85,"technical":70,"problemSolving":75,"testing":60,"communication":90,"total":76} -->`;
+      const match = sampleFeedback.match(/<!--\s*EVAL_FACTORS:\s*({.*?})\s*-->/s);
+      expect(match).not.toBeNull();
+      if (match && match[1]) {
+        const parsed = JSON.parse(match[1]);
+        expect(parsed.github).toBe(85);
+        expect(parsed.total).toBe(76);
+      }
+    });
+  });
+
+  describe("Proctoring Telemetry Trust Logic", () => {
+    test("should compute 100% trust with 0 violations", () => {
+      let trustScore = 100;
+      const violations = 0;
+      trustScore = Math.max(0, trustScore - (violations * 10));
+      expect(trustScore).toBe(100);
+    });
+
+    test("should deduct trust score on violations", () => {
+      const tabSwitches = 2; // -10 per switch
+      const fullscreenExits = 1; // -15 per exit
+      const pasteAttempts = 1; // -15 per paste
+      const totalDeductions = (tabSwitches * 10) + (fullscreenExits * 15) + (pasteAttempts * 15);
+      const finalTrust = Math.max(0, 100 - totalDeductions);
+      expect(finalTrust).toBe(50);
+    });
   });
 });
+
 

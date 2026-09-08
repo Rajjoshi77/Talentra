@@ -12,8 +12,17 @@ node_modules
 .env.test.local
 .env.production.local
 
-# Testing
+# Testing & Reports
 coverage
+*.lcov
+reports/
+report*.json
+*.report.json
+*.report.*
+*.docx
+sample.pdf
+gen_reports.py
+
 
 # Turbo
 .turbo
@@ -27,6 +36,10 @@ out/
 build
 dist
 
+# Uploads & Temporary artifacts
+uploads/
+scratch/
+apps/backend/uploads/
 
 # Debug
 npm-debug.log*
@@ -37,3 +50,4 @@ yarn-error.log*
 .DS_Store
 *.pem
 README_INTERNAL.md
+

@@ -6,14 +6,18 @@ out
 dist
 *.tgz
 
-# code coverage
+# code coverage & reports
 coverage
 *.lcov
+reports/
+report*.json
+*.report.json
+*.report.*
+*.docx
 
 # logs
 logs
-_.log
-report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
+*.log
 
 # dotenv environment variable files
 .env
@@ -34,6 +38,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .DS_Store
 
 /generated/prisma
-uploads/*
-!uploads/.gitkeep
+uploads/
+scratch/
+
 

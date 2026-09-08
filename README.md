@@ -1,171 +1,185 @@
-# Talentra AI Interviewer
+# Talentra AI — Next-Gen AI Technical Interviewer & Proctoring Platform
 
-Talentra AI Interviewer is a full-stack technical interview platform that creates personalized mock interviews from a candidate's public GitHub profile. It combines repository analysis, real-time voice interaction, multi-provider LLM fallback, transcript capture, and structured performance evaluation in one monorepo.
+Talentra AI is an intelligent, full-stack mock technical interview platform that crafts personalized, conversational technical interviews based on a candidate's GitHub repositories and parsed resume. It features real-time voice synthesis, multi-model AI resilience, compulsory hardware & fullscreen proctoring, incident telemetry logging, and a 5-factor weighted performance evaluation scorecard.
 
-## Highlights
+---
 
-- GitHub-based interview personalization from public repository metadata.
-- Real-time voice interviews through the OpenAI Realtime API.
-- Offline-friendly mock mode using browser speech synthesis and speech recognition.
-- Multi-provider response generation with Gemini, Groq, OpenRouter, Ollama, and OpenAI fallback support.
-- Persistent interview transcripts and evaluation reports through Prisma.
-- Weighted scorecard covering code quality, technical depth, system design, testing, and communication.
-- React interview room with voice activity visualization and animated interviewer presence.
+## 🌟 Key Highlights
 
-## Tech Stack
+- 🔍 **GitHub & Resume Personalization**: Scrapes public repositories and parses uploaded resumes to ask targeted, architectural questions tailored to the candidate's actual projects and tech stack.
+- 🎙️ **Real-Time Voice & WebRTC**: Direct voice conversations powered by OpenAI Realtime WebRTC with browser speech synthesis and recognition fallback.
+- 🛡️ **Compulsory Hardware & Proctoring Barrier**:
+  - Mandatory Camera & Microphone permission verification before entering the interview sandbox.
+  - Compulsory Fullscreen Lock barrier: candidate cannot interact or proceed unless full screen is active.
+  - Live anti-cheating telemetry tracking: tab switches, window blur events, clipboard paste interception, and devtools access.
+- ⚡ **Multi-Provider LLM Resilience**:
+  - Automated fallback cascade across Google Gemini (`gemini-2.5-flash-lite`, `gemini-3.5-flash`), Groq, OpenRouter, local Ollama, and OpenAI.
+  - High-availability offline evaluation fallback engine.
+- 📊 **5-Factor Weighted Competency Scorecard**:
+  - Interactive SVG circular score gauge with dynamic color coding (Emerald $\ge 80$, Amber $60-79$, Rose $< 60$).
+  - Animated progress bars displaying individual factor scores, weights, and exact points contributions:
+    1. **GitHub Code Quality & Portfolio (20% Weight)**
+    2. **Technical Depth & Accuracy (30% Weight)**
+    3. **Problem-Solving & System Design (20% Weight)**
+    4. **Testing, Automation & CI/CD (15% Weight)**
+    5. **Verbal Communication, Professionalism & Integrity (15% Weight)**
+  - Transparent mathematical formula summation ($\Sigma\ \text{Points} = \text{Overall Score}$).
+- 📝 **Proctoring Incident Audit & Resume Highlights**: Detailed violation timelines and extracted resume achievements displayed directly on the results dashboard.
 
-- Runtime and package manager: Bun
-- Monorepo orchestration: Turborepo
-- Frontend: React, TypeScript, Tailwind CSS, shadcn-style UI primitives
-- Backend: Express, TypeScript, Prisma
-- Database: PostgreSQL
-- AI providers: OpenAI Realtime, OpenAI Chat Completions, Gemini, Groq, OpenRouter, Ollama
+---
 
-## Repository Structure
+## 🏗️ Architecture & Monorepo Structure
 
 ```text
 AI_Interviewer/
-|-- apps/
-|   |-- backend/
-|   |   |-- generated/          # Generated Prisma client
-|   |   |-- prisma/             # Prisma schema and migrations
-|   |   |-- scrapers/           # GitHub metadata scraper
-|   |   |-- db.ts               # Prisma database client
-|   |   |-- index.ts            # API server and interview workflow
-|   |   `-- types.ts            # Request validation schemas
-|   |-- frontend/
-|   |   |-- src/
-|   |   |   |-- components/     # Form, interview, result, and UI components
-|   |   |   `-- lib/            # Shared frontend configuration
-|   |   `-- build.ts            # Bun frontend build script
-|   |-- docs/                   # Documentation app scaffold
-|   `-- web/                    # Web app scaffold
-|-- packages/                   # Shared configuration and UI package workspace
-|-- package.json
-|-- turbo.json
-`-- README.md
+├── apps/
+│   ├── backend/                     # Express + TypeScript + Bun API Server
+│   │   ├── prisma/                  # Prisma schema & PostgreSQL migrations
+│   │   ├── scrapers/                # GitHub profile & repository scraper
+│   │   ├── db.ts                    # Prisma database client
+│   │   ├── helpers.ts               # JSON cleaners, username parsers, signal helpers
+│   │   ├── index.ts                 # Express routes (pre-interview, voice, chat, evaluate)
+│   │   ├── index.test.ts            # Bun test suite (15 unit tests)
+│   │   └── types.ts                 # Zod validation schemas
+│   │
+│   ├── frontend/                    # React 18 + Vite + Tailwind CSS + Bun
+│   │   ├── src/
+│   │   │   ├── components/          # UI Components (Form, Interview, Result, UI primitives)
+│   │   │   │   ├── Form.tsx         # Setup wizard (Role selection, GitHub URL, Resume upload)
+│   │   │   │   ├── Interview.tsx    # Live interview sandbox with Audio visualizer & Proctoring HUD
+│   │   │   │   ├── Result.tsx       # 5-Pillar Scorecard, Proctoring Audit, Resume Highlights
+│   │   │   │   └── ui/              # shadcn-style modular UI primitives
+│   │   │   ├── hooks/
+│   │   │   │   └── useProctoring.ts # Hardware validation, fullscreen lock & telemetry listener
+│   │   │   ├── lib/                 # Backend URL configuration & Tailwind utility helpers
+│   │   │   └── assets/              # Premium background gradients & illustrations
+│   │   └── build.ts                 # Bun production build script
+│   │
+│   ├── docs/                        # Next.js documentation app
+│   └── web/                         # Next.js marketing web app
+│
+├── packages/                        # Shared workspace configurations & UI packages
+│   ├── eslint-config/               # Shared ESLint rules
+│   ├── typescript-config/           # Shared TypeScript tsconfig presets
+│   └── ui/                          # Shared React UI components
+│
+├── Images/                          # Platform preview screenshots
+├── package.json                     # Monorepo root scripts & dependencies
+├── turbo.json                       # Turborepo task pipeline configuration
+└── README.md                        # Master documentation
 ```
 
-## Prerequisites
+---
 
-- Bun 1.3 or newer
-- PostgreSQL database
-- At least one supported LLM provider key for dynamic interview generation
-- OpenAI API key for real-time voice interviews
+## ⚙️ Prerequisites & Environment Setup
 
-The application can still run in fallback paths when some providers are not configured, but the best experience requires both database access and at least one LLM provider.
+- **Runtime**: [Bun](https://bun.sh/) 1.3 or higher
+- **Database**: PostgreSQL 14+ (or Docker / cloud hosted)
+- **AI Keys**: (At least one active key recommended for live AI generation)
+  - `GEMINI_API_KEY` or `GOOGLE_API_KEY`
+  - `OPENAI_KEY` (Required for OpenAI Realtime voice)
+  - `GROQ_API_KEY` (Optional)
+  - `OPENROUTER_API_KEY` (Optional)
 
-## Environment Variables
-
-Create `apps/backend/.env` and configure the values you need:
+### Backend Environment Configuration (`apps/backend/.env`)
 
 ```env
-DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE"
+DATABASE_URL="postgresql://postgres:postgres@localhost:5433/ai_interviewer"
 APP_PASSCODE="Rajjoshi_Talentra_Secured_2026"
 
-OPENAI_KEY=""
-GEMINI_API_KEY=""
-GROQ_API_KEY=""
-OPENROUTER_API_KEY=""
+# Realtime WebRTC Voice
+OPENAI_KEY="sk-..."
 
+# Fallback AI Providers
+GEMINI_API_KEY="AIzaSy..."
+GROQ_API_KEY="gsk_..."
+OPENROUTER_API_KEY="sk-or-v1-..."
+
+# Optional Local Ollama
 OLLAMA_BASE_URL="http://localhost:11434"
-OLLAMA_MODEL=""
+OLLAMA_MODEL="llama3"
 ```
 
-Set this variable for deployed frontend builds:
+### Frontend Environment Configuration (`apps/frontend/.env`)
 
 ```env
-BACKEND_URL="https://your-backend-domain.example.com"
+VITE_BACKEND_URL="http://localhost:3001"
 ```
 
-`APP_PASSCODE` is required by the backend startup guard. `OPENAI_KEY` is required for the real-time WebRTC voice session. The other AI keys are optional fallback providers for text interview generation and evaluation.
+---
 
-## Setup
+## 🚀 Quick Start Guide
 
-Install dependencies from the repository root:
-
+### 1. Install Dependencies
 ```bash
 bun install
 ```
 
-Prepare the database:
-
+### 2. Initialize Database & Run Migrations
 ```bash
 cd apps/backend
 bunx prisma db push
 ```
 
-Start the full development workspace:
-
+### 3. Start Development Servers
+From the root directory:
 ```bash
-cd ../..
 bun run dev
 ```
 
-Default local services:
+- **Frontend Application**: `http://localhost:3000`
+- **Backend API Server**: `http://localhost:3001`
+- **LLM Health Diagnostics**: `http://localhost:3001/api/v1/health-llm`
 
-- Frontend: `http://localhost:3000`
-- Backend: `http://localhost:3001`
+---
 
-## Common Commands
+## 🧪 Comprehensive Testing Suite
 
-```bash
-bun run dev
-bun run build
-bun run test
-bun run check-types
-```
-
-Run the frontend directly:
+Talentra AI includes automated unit and integration tests written with `bun:test`.
 
 ```bash
-cd apps/frontend
-bun run dev
-bun run build
-```
-
-Run backend tests:
-
-```bash
+# Run all backend unit tests
 cd apps/backend
 bun test
 ```
 
-## Interview Flow
+### Test Coverage Summary:
+- ✅ **JSON Response Sanitization**: Stripping markdown wrappers and fixing raw LLM outputs.
+- ✅ **Timeout & AbortSignals**: Preventing hanging external API requests.
+- ✅ **GitHub Username Parser**: Normalizing profiles, query strings, and raw URLs.
+- ✅ **Zod Request Validation**: Validating required pre-interview fields.
+- ✅ **5-Factor Score Calculations**: Mathematically verifying weighted ratings ($20\% + 30\% + 20\% + 15\% + 15\%$).
+- ✅ **Anti-Hallucination & 0-Answer Penalties**: Accurate scoring of incomplete/empty submissions.
+- ✅ **EVAL_FACTORS Telemetry Extraction**: Parsing embedded structured factor metadata.
+- ✅ **Proctoring Telemetry Trust Deductions**: Validating penalty scoring for tab switches and fullscreen exits.
 
-1. The candidate enters a GitHub username or profile URL.
-2. The backend normalizes the GitHub input and scrapes public repository metadata.
-3. The backend creates an interview record.
-4. The interview room starts a WebRTC voice session when OpenAI Realtime is available.
-5. If real-time audio cannot start, the app falls back to mock mode with browser-native speech.
-6. Responses are stored as transcript messages.
-7. The evaluation endpoint creates a structured report and scorecard from the transcript and repository metadata.
+---
 
-## Evaluation Model
+## 📊 Evaluation Rubric & Scoring Weights
 
-The scorecard is organized around five weighted dimensions:
+$$\text{Overall Rating} = \sum (\text{Factor Score} \times \text{Weight})$$
 
-- GitHub code quality and portfolio: 20%
-- Technical depth and accuracy: 30%
-- Problem solving and system design: 20%
-- Testing, automation, and CI/CD: 15%
-- Verbal communication and professionalism: 15%
+| Factor | Weight | Evaluation Criteria |
+| :--- | :---: | :--- |
+| **GitHub Code Quality & Portfolio** | **20%** | Repository structure, stack modernism, commit frequency, star ratings, and documentation. |
+| **Technical Depth & Accuracy** | **30%** | Correctness of explanations, technical vocabulary, and foundational knowledge during Q&A. |
+| **Problem-Solving & System Design** | **20%** | Ability to explain architecture, scalability trade-offs, and edge-case handling. |
+| **Testing, Automation & CI/CD** | **15%** | Presence of test suites (Jest/Cypress/Playwright), linting rules, and CI/CD pipelines. |
+| **Verbal Communication & Integrity** | **15%** | Speech articulation, professional delivery, and proctoring session trust score. |
 
-## Deployment Notes
+---
 
-- Set `BACKEND_URL` during the frontend build so deployed clients do not call `localhost`.
-- Configure `APP_PASSCODE` in the backend environment before starting the server.
-- Configure `OPENAI_KEY` for real-time voice mode.
-- Proxy variables are optional; the GitHub scraper only enables proxy mode when all proxy settings are present.
-- GitHub profile inputs may be provided as usernames, `github.com/user`, or full profile URLs.
+## 🔒 Security & Proctoring Details
 
-## Development Notes
+- **Camera & Mic Lock**: Verified via `navigator.mediaDevices.getUserMedia` before entry.
+- **Fullscreen Guard**: Monitored via document fullscreen events (`fullscreenchange`). The candidate cannot see questions or speak until full screen is restored.
+- **Tab & Window Focus**: Tracks `visibilitychange` and window `blur` events with precise timestamps.
+- **Clipboard & Devtools Lock**: Prevents pasting code answers from external sources and detects inspection attempts.
+- **Privacy First**: Resumes and session telemetry are stored securely and never committed to version control.
 
-- Keep generated files and unrelated workspace scaffolds out of feature changes unless they are required.
-- Prefer focused changes in `apps/frontend/src/components` and `apps/backend/index.ts` for interview behavior.
-- Avoid logging sensitive environment values, SDP payloads, or provider responses in production paths.
-- Regenerate or push Prisma schema changes whenever the database model changes.
+---
 
-## License
+## 📄 License
 
-This project is proprietary. See [LICENSE](LICENSE) for details.
+Proprietary © 2026 Talentra AI. All rights reserved.
+
