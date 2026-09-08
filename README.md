@@ -54,9 +54,7 @@ AI_Interviewer/
 │   │   │   ├── lib/                 # Backend URL configuration & Tailwind utility helpers
 │   │   │   └── assets/              # Premium background gradients & illustrations
 │   │   └── build.ts                 # Bun production build script
-│   │
-│   ├── docs/                        # Next.js documentation app
-│   └── web/                         # Next.js marketing web app
+│   └── (clean workspace)
 │
 ├── packages/                        # Shared workspace configurations & UI packages
 │   ├── eslint-config/               # Shared ESLint rules
