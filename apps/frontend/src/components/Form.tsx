@@ -109,7 +109,7 @@ const Form = () => {
         setLoadingStep((prev) =>
           prev < loadingSteps.length - 1 ? prev + 1 : prev,
         );
-      }, 1800);
+      }, 1800);  
     }
     return () => clearInterval(interval);
   }, [loading]);

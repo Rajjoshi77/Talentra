@@ -5,6 +5,7 @@
   "scripts": {
     "test": "bun test",
     "build": "prisma generate",
+    "dev": "bun --watch index.ts",
     "start": "prisma migrate deploy && bun run index.ts"
   },
   "devDependencies": {

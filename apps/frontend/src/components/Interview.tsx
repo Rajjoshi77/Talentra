@@ -12,13 +12,19 @@ import {
   User as UserIcon,
   Laptop,
   ShieldCheck,
+  ShieldAlert,
   Radio,
   Camera,
   CameraOff,
+  Maximize2,
+  Minimize2,
+  AlertTriangle,
+  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 import axios from "axios";
 import bgImage from "../assets/image1.png";
+import { useProctoring } from "../hooks/useProctoring";
 
 
 interface MessageLog {
@@ -58,6 +64,23 @@ export default function Interview() {
   const [cameraOn, setCameraOn] = useState(true);
   const [hasCamera, setHasCamera] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [permissionStatus, setPermissionStatus] = useState<"checking" | "granted" | "denied">("checking");
+  const [permissionError, setPermissionError] = useState<string | null>(null);
+
+  // Anti-Cheating & Real-Time Proctoring Suite
+  const {
+    integrityScore,
+    violations,
+    tabSwitchCount,
+    pasteCount,
+    fullscreenExitCount,
+    isFullscreen,
+    activeWarning,
+    clearWarning,
+    requestFullscreen,
+    exitFullscreen,
+    addViolation,
+  } = useProctoring(interviewId, status === "active" || isMockMode);
 
   const localStreamRef = useRef<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -108,16 +131,44 @@ export default function Interview() {
 
         let ms: MediaStream;
         try {
-          ms = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+          ms = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true },
+            video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+          });
           setHasCamera(true);
           setCameraOn(true);
-        } catch (err) {
-          console.warn("Camera access denied or unavailable, falling back to audio-only stream:", err);
-          ms = await navigator.mediaDevices.getUserMedia({ audio: true });
+          setPermissionStatus("granted");
+          setPermissionError(null);
+        } catch (err: any) {
+          console.error("Camera and Microphone permission required:", err);
+          setPermissionStatus("denied");
+          setPermissionError(
+            "Camera and Microphone are strictly compulsory for proctored interviews. Please enable camera and microphone access in your browser settings to proceed."
+          );
           setHasCamera(false);
           setCameraOn(false);
+          return;
         }
         localStreamRef.current = ms;
+
+        // Monitor webcam video track to detect tampering or disconnection
+        const videoTrack = ms.getVideoTracks()[0];
+        if (videoTrack) {
+          videoTrack.onended = () => {
+            addViolation(
+              "camera_disabled",
+              "Webcam video stream was disconnected during active proctoring.",
+              20
+            );
+          };
+          videoTrack.onmute = () => {
+            addViolation(
+              "camera_disabled",
+              "Webcam video stream was muted or blocked.",
+              15
+            );
+          };
+        }
 
         let screenStream: MediaStream | null = null;
         try {
@@ -599,17 +650,9 @@ export default function Interview() {
   };
 
   const toggleCamera = () => {
-    if (!localStreamRef.current) return;
-    const videoTrack = localStreamRef.current.getVideoTracks()[0];
-    if (videoTrack) {
-      videoTrack.enabled = !videoTrack.enabled;
-      setCameraOn(videoTrack.enabled);
-      toast.info(
-        videoTrack.enabled ? "Camera preview on" : "Camera preview off",
-      );
-    } else {
-      toast.error("No camera track found.");
-    }
+    toast.warning(
+      "Webcam stream is compulsory for proctored technical evaluations and cannot be disabled."
+    );
   };
 
   const startRecording = (stream: MediaStream) => {
@@ -739,6 +782,22 @@ export default function Interview() {
       window.speechSynthesis.cancel();
     }
 
+    if (interviewId) {
+      try {
+        localStorage.setItem(
+          `talentra_proctoring_${interviewId}`,
+          JSON.stringify({
+            integrityScore,
+            violations,
+            tabSwitchCount,
+            pasteCount,
+            fullscreenExitCount,
+            recordedAt: new Date().toISOString(),
+          })
+        );
+      } catch (e) { }
+    }
+
     toast.loading("Ending interview and evaluating results...");
     navigate(`/result/${interviewId}`);
   };
@@ -752,20 +811,176 @@ export default function Interview() {
         backgroundPosition: "center",
       }}
     >
+      {/* Compulsory Camera & Microphone Permission Gate */}
+      {permissionStatus === "denied" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-2xl p-6 text-center animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-neutral-950/95 border-2 border-rose-500/50 rounded-3xl p-8 shadow-2xl space-y-6">
+            <div className="mx-auto w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
+              <ShieldAlert className="h-8 w-8 animate-pulse" />
+            </div>
 
+            <div className="space-y-2">
+              <span className="inline-block text-[11px] font-mono uppercase tracking-wider px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">
+                Compulsory Hardware Access
+              </span>
+              <h2 className="text-xl font-bold text-white">
+                Camera & Microphone Required
+              </h2>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                {permissionError || "Webcam and microphone access are strictly compulsory for proctored technical evaluations to verify candidate identity and integrity."}
+              </p>
+            </div>
 
-      <header className="relative z-10 border-b border-white/5 bg-neutral-900/40 backdrop-blur-md px-8 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3">
+            <div className="bg-neutral-900/80 border border-white/10 rounded-2xl p-4 text-left space-y-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-300 flex items-center gap-2">
+                  <Camera className="h-4 w-4 text-rose-400" /> Webcam Video Stream
+                </span>
+                <span className="text-rose-400 font-mono font-bold">Compulsory</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-300 flex items-center gap-2">
+                  <Mic className="h-4 w-4 text-rose-400" /> Audio Microphone
+                </span>
+                <span className="text-rose-400 font-mono font-bold">Compulsory</span>
+              </div>
+            </div>
+
+            <Button
+              onClick={() => {
+                initialized.current = false;
+                window.location.reload();
+              }}
+              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl py-3.5 text-sm transition-all shadow-lg shadow-indigo-600/20 cursor-pointer"
+            >
+              Grant Permissions & Retry
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Compulsory Fullscreen Mode Enforcement Barrier */}
+      {permissionStatus === "granted" && (status === "active" || isMockMode) && !isFullscreen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-2xl p-6 text-center animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-neutral-950/95 border-2 border-amber-500/50 rounded-3xl p-8 shadow-2xl space-y-6">
+            <div className="mx-auto w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+              <Maximize2 className="h-8 w-8 animate-bounce" />
+            </div>
+
+            <div className="space-y-2">
+              <span className="inline-block text-[11px] font-mono uppercase tracking-wider px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">
+                Compulsory Fullscreen Mode
+              </span>
+              <h2 className="text-2xl font-bold text-white">
+                Fullscreen Required to Proceed
+              </h2>
+              <p className="text-sm text-slate-300 leading-relaxed">
+                This proctored evaluation requires continuous fullscreen mode to prevent unauthorized tab switching and cheating. Your session is paused until you return to fullscreen.
+              </p>
+            </div>
+
+            <div className="bg-neutral-900/80 border border-white/10 rounded-2xl p-4 text-xs text-slate-400 flex items-center justify-between">
+              <span>Proctoring Integrity Rule</span>
+              <span className="text-amber-400 font-mono font-bold">Mandatory Fullscreen</span>
+            </div>
+
+            <Button
+              onClick={requestFullscreen}
+              className="w-full bg-amber-500 hover:bg-amber-400 text-black font-extrabold rounded-xl py-3.5 text-base shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
+            >
+              Enter Fullscreen & Resume Interview
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Real-time Anti-Cheating & Proctoring Warning Alert Modal */}
+      {activeWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-neutral-950/95 border-2 border-rose-500/60 rounded-2xl p-6 shadow-2xl shadow-rose-950/60 space-y-5 text-center">
+            <div className="mx-auto w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 animate-bounce">
+              <ShieldAlert className="h-6 w-6" />
+            </div>
+
+            <div className="space-y-2">
+              <span className="inline-block text-[11px] font-mono uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">
+                Proctoring Flag
+              </span>
+              <h3 className="text-lg font-bold text-white">
+                {activeWarning.title}
+              </h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                {activeWarning.description}
+              </p>
+            </div>
+
+            <div className="bg-neutral-900/80 border border-white/5 rounded-xl p-3.5 flex items-center justify-between text-xs">
+              <span className="text-slate-400">Current Integrity Score</span>
+              <span
+                className={`font-mono font-bold text-sm ${integrityScore >= 80
+                  ? "text-emerald-400"
+                  : integrityScore >= 60
+                    ? "text-amber-400"
+                    : "text-rose-400"
+                  }`}
+              >
+                {integrityScore}%
+              </span>
+            </div>
+
+            <p className="text-[11px] text-slate-500">
+              Note: All window switches, clipboard events, and devtools interactions are permanently logged in your evaluation scorecard.
+            </p>
+
+            <Button
+              onClick={() => {
+                clearWarning();
+                if (!isFullscreen) requestFullscreen();
+              }}
+              className="w-full bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-xl py-2.5 text-sm transition-all cursor-pointer"
+            >
+              I Understand & Return to Interview
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <header className="relative z-10 border-b border-white/5 bg-neutral-900/40 backdrop-blur-md px-6 sm:px-8 py-3.5 flex items-center justify-between">
+        <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
+          <div className="flex items-center gap-2.5">
             <div
               className={`h-2 w-2 rounded-full ${isMockMode ? "bg-indigo-500" : "bg-emerald-500"} animate-pulse`}
             />
             <span className="font-mono text-xs text-slate-400 tracking-wider uppercase">
               {isMockMode
-                ? "Sandbox Session: Mock Mode"
-                : "Sandbox Session: Active"}
+                ? "Sandbox Mock"
+                : "Live Session"}
             </span>
           </div>
+
+          {/* Live Proctoring Status Badge */}
+          <div className="flex items-center gap-2 bg-neutral-950/70 border border-white/10 px-2.5 py-1 rounded-lg">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+            <span className="text-[11px] font-mono text-slate-300 font-medium">
+              Proctoring:
+            </span>
+            <span
+              className={`text-[11px] font-mono font-bold ${integrityScore >= 90
+                ? "text-emerald-400"
+                : integrityScore >= 70
+                  ? "text-amber-400"
+                  : "text-rose-400"
+                }`}
+            >
+              {integrityScore}% Trust
+            </span>
+            {violations.length > 0 && (
+              <span className="bg-rose-500/20 text-rose-300 text-[10px] font-mono px-1.5 py-0.2 rounded border border-rose-500/30">
+                {violations.length} Flags
+              </span>
+            )}
+          </div>
+
           {isRecording && (
             <div className="flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-md">
               <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
@@ -773,9 +988,32 @@ export default function Interview() {
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2 bg-neutral-950/60 border border-white/5 px-3 py-1.5 rounded-lg text-slate-400 font-mono text-xs">
-          <Terminal className="h-3.5 w-3.5 text-indigo-400" />
-          <span>UUID: {interviewId?.slice(0, 8)}...</span>
+
+        <div className="flex items-center gap-3">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={isFullscreen ? exitFullscreen : requestFullscreen}
+            className="h-8 px-2.5 text-xs text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg flex items-center gap-1.5 cursor-pointer"
+            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen Proctoring"}
+          >
+            {isFullscreen ? (
+              <>
+                <Minimize2 className="h-3.5 w-3.5 text-indigo-400" />
+                <span className="hidden sm:inline">Exit Fullscreen</span>
+              </>
+            ) : (
+              <>
+                <Maximize2 className="h-3.5 w-3.5 text-indigo-400" />
+                <span className="hidden sm:inline">Fullscreen</span>
+              </>
+            )}
+          </Button>
+
+          <div className="flex items-center gap-2 bg-neutral-950/60 border border-white/5 px-3 py-1.5 rounded-lg text-slate-400 font-mono text-xs">
+            <Terminal className="h-3.5 w-3.5 text-indigo-400" />
+            <span>UUID: {interviewId?.slice(0, 8)}...</span>
+          </div>
         </div>
       </header>
 
@@ -1045,19 +1283,14 @@ export default function Interview() {
             <span>{isMuted ? "Unmute" : "Mute"}</span>
           </Button>
 
-          <Button
-            onClick={toggleCamera}
-            variant="outline"
-            disabled={!hasCamera}
-            className={`rounded-xl px-5 py-6 border transition-all duration-200 font-medium flex items-center gap-2 cursor-pointer ${hasCamera && !cameraOn ? "bg-red-500 text-white border-red-500 hover:bg-red-600" : "bg-white text-black border-white hover:bg-gray-100"} text-sm font-medium flex items-center gap-2 cursor-pointer`}
+          <div
+            title="Webcam video streaming is strictly compulsory during proctored interviews"
+            className="rounded-xl px-5 py-3.5 bg-neutral-950/80 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-2 select-none shadow-sm"
           >
-            {cameraOn && hasCamera ? (
-              <Camera className="h-4 w-4" />
-            ) : (
-              <CameraOff className="h-4 w-4" />
-            )}
-            {cameraOn && hasCamera ? "Camera Off" : "Camera On"}
-          </Button>
+            <Camera className="h-4 w-4 text-emerald-400" />
+            <span>Camera: Active & Compulsory</span>
+            <Lock className="h-3.5 w-3.5 text-emerald-400/80 ml-0.5" />
+          </div>
 
           <Button
             onClick={endInterview}

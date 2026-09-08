@@ -60,4 +60,45 @@ describe("Backend Helpers", () => {
       ).toBe("torvalds");
     });
   });
+
+  describe("Score Weighting Calculation", () => {
+    test("should compute 5-factor weighted composite rating accurately", () => {
+      const factors = {
+        github: 80,         // 80 * 0.20 = 16.0
+        technical: 90,      // 90 * 0.30 = 27.0
+        problemSolving: 85, // 85 * 0.20 = 17.0
+        testing: 60,        // 60 * 0.15 = 9.0
+        communication: 90,  // 90 * 0.15 = 13.5
+      };
+      // Total = 16.0 + 27.0 + 17.0 + 9.0 + 13.5 = 82.5 -> 83
+      const total = Math.round(
+        factors.github * 0.20 +
+        factors.technical * 0.30 +
+        factors.problemSolving * 0.20 +
+        factors.testing * 0.15 +
+        factors.communication * 0.15
+      );
+      expect(total).toBe(83);
+    });
+
+    test("should score incomplete session with 0 answers accurately", () => {
+      const factors = {
+        github: 75,         // 75 * 0.20 = 15.0
+        technical: 0,       // 0 * 0.30 = 0.0
+        problemSolving: 0,  // 0 * 0.20 = 0.0
+        testing: 40,        // 40 * 0.15 = 6.0
+        communication: 0,   // 0 * 0.15 = 0.0
+      };
+      // Total = 15.0 + 0 + 0 + 6.0 + 0 = 21.0
+      const total = Math.round(
+        factors.github * 0.20 +
+        factors.technical * 0.30 +
+        factors.problemSolving * 0.20 +
+        factors.testing * 0.15 +
+        factors.communication * 0.15
+      );
+      expect(total).toBe(21);
+    });
+  });
 });
+

@@ -184,7 +184,7 @@ app.post("/api/v1/session", async (req, res) => {
     const { interviewId } = req.query as { interviewId?: string };
 
     // Build a context-aware system prompt if we have an interviewId
-    let instructions = "You are a Senior Technical Interviewer conducting a professional mock interview. Ask relevant technical questions, listen carefully to the candidate's answers, and follow up with deeper probing questions based on their responses. Do not repeat questions you have already asked.";
+    let instructions = "You are a Senior Technical Interviewer conducting a professional mock interview. Ask exactly ONE clear, concise question at a time (1-2 sentences). Listen carefully to the candidate's answers and follow up naturally. Never ask multi-part questions or list numbered points.";
 
     if (interviewId) {
       try {
@@ -210,7 +210,7 @@ app.post("/api/v1/session", async (req, res) => {
             ? `\n\nConversation so far:\n${interview.conversation.map((m: any) => `${m.type === "User" ? "Candidate" : "Interviewer"}: ${m.message}`).join("\n")}\n\nDo NOT repeat any of the questions already asked above. Continue the interview naturally from where it left off.`
             : "";
 
-          instructions = `You are a Senior Technical Interviewer conducting a professional mock interview for the role of ${roleConfig.title}.
+          instructions = `You are a Senior Technical Interviewer conducting a realistic, interactive mock interview for the role of ${roleConfig.title}.
 
 Job Description:
 ${roleConfig.jd}
@@ -226,16 +226,11 @@ ${githubInfo}
 Resume Metadata:
 ${resumeInfo}
 
-Generate interview questions using BOTH sources.
-Focus on:
-- How their skills and repositories relate to the selected role (${roleConfig.title}).
-- Projects
-- Skills
-- Internships
-- Education
-- GitHub repositories
-
-Keep your questions concise and conversational since this is a voice interview. Ask one question at a time. Wait for the candidate to finish speaking before asking the next question. Do NOT repeat questions.${priorConversation}`;
+CRITICAL INTERVIEWING RULES (STRICT):
+1. ASK EXACTLY ONE QUESTION AT A TIME: Never ask compound questions, numbered lists (1, 2, 3), or multi-part questions in a single turn.
+2. KEEP IT CONCISE: Keep your speaking turn short, conversational, and direct (1 to 3 sentences maximum). Avoid long preambles, excessive flattering praise, or monologues.
+3. CONVERSATIONAL FLOW: Start with one specific question about their projects, tech stack, or system design choices. Wait for the candidate to answer before asking the next question.
+4. NO ESSAY PROMPTS: Do not dump multiple topics together. A real interviewer asks one clear question, listens to the answer, and asks follow-ups.${priorConversation}`;
         }
       } catch (err) {
         console.warn("Could not fetch interview for session context:", err);
@@ -339,10 +334,16 @@ async function callLLM(
   userPrompt: string,
   isJson: boolean = false,
 ): Promise<string> {
-  // 1. Google Gemini (Try gemini-2.0-flash, then gemini-1.5-flash)
+  // 1. Google Gemini (Try active Gemini 2.5/3.5/3.6 flash models)
   const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (geminiKey) {
-    const geminiModels = ["gemini-2.0-flash", "gemini-1.5-flash"];
+    const geminiModels = [
+      "gemini-2.5-flash-lite",
+      "gemini-3.5-flash",
+      "gemini-3.6-flash",
+      "gemini-3.7-flash",
+      "gemini-flash-latest",
+    ];
     for (const model of geminiModels) {
       try {
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey.trim()}`;
@@ -361,7 +362,7 @@ async function callLLM(
               ...(isJson ? { responseMimeType: "application/json" } : {}),
             },
           }),
-          signal: getTimeoutSignal(12000),
+          signal: getTimeoutSignal(15000),
         });
 
         if (response.ok) {
@@ -385,9 +386,13 @@ async function callLLM(
   // 2. Groq Cloud
   const groqKey = process.env.GROQ_API_KEY;
   if (groqKey) {
-    const groqModels = isJson
-      ? ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
-      : ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
+    const groqModels = [
+      "openai/gpt-oss-120b",
+      "openai/gpt-oss-20b",
+      "qwen/qwen3.6-27b",
+      "groq/compound",
+      "groq/compound-mini",
+    ];
     for (const model of groqModels) {
       try {
         const response = await fetch(
@@ -427,14 +432,14 @@ async function callLLM(
     }
   }
 
-  // 3. OpenRouter (Supports free & paid models)
+  // 3. OpenRouter (Supports free & auto models)
   const openrouterKey = process.env.OPENROUTER_API_KEY;
   if (openrouterKey) {
     const orModels = [
-      "meta-llama/llama-3.3-70b-instruct:free",
-      "google/gemini-2.0-flash-exp:free",
-      "mistralai/mistral-7b-instruct:free",
+      "openrouter/free",
       "openrouter/auto",
+      "google/gemma-2-9b-it:free",
+      "mistralai/mistral-7b-instruct:free",
     ];
     for (const model of orModels) {
       try {
@@ -662,30 +667,26 @@ app.post("/api/v1/interview/:interviewId/chat", async (req, res) => {
     const roleKey = interview.role || "Software Engineer";
     const roleConfig = (JOB_DESCRIPTIONS[roleKey] || JOB_DESCRIPTIONS["Software Engineer"])!;
 
-    const systemPrompt = `You are a Senior Technical Interviewer conducting a mock interview for a candidate for the role of ${roleConfig.title}.
+    const systemPrompt = `You are a Senior Technical Interviewer conducting a realistic, interactive mock interview for the role of ${roleConfig.title}.
 
 Job Description:
 ${roleConfig.jd}
 
-Guidelines/Focus Areas for this interview:
+Guidelines/Focus Areas:
 ${roleConfig.rules.map(rule => `- ${rule}`).join("\n")}
 
-The candidate profile contains:
-
+Candidate Profile:
 GitHub Metadata:
 ${githubInfo}
 
 Resume Metadata:
 ${resumeInfo}
 
-Generate interview questions using BOTH sources.
-Focus on:
-- How their skills and repositories relate to the selected role (${roleConfig.title}).
-- Projects
-- Skills
-- Internships
-- Education
-- GitHub repositories
+CRITICAL INTERVIEWING RULES:
+1. **ASK EXACTLY ONE QUESTION AT A TIME**: Never ask compound questions, numbered lists (e.g. 1., 2., 3.), or multi-part questions in a single response.
+2. **CONCISE & NATURAL**: Keep your response short and conversational (1 to 3 sentences maximum). Avoid long preambles, excessive flattery, or multi-paragraph essay prompts.
+3. **NATURAL BACK-AND-FORTH**: If the candidate already spoke, briefly acknowledge their point (1 short phrase) and ask one targeted follow-up question, or transition smoothly to the next topic.
+4. **NO REPETITION**: Never ask questions that were already covered in the conversation history.
 `;
 
     const userPrompt = `
@@ -718,9 +719,9 @@ Please generate the interviewer's next response:
       const primaryLang = topRepos[0]?.language || "your primary tech stack";
 
       const dynamicQuestions = [
-        `Welcome to your technical interview for the ${roleConfig.title} role! I reviewed your GitHub portfolio and noticed your project "${primaryRepo}" built with ${primaryLang}. Could you give me a walkthrough of its architecture and why you chose that stack?`,
-        `That's insightful. In your project "${secondaryRepo}", how did you design data flow, manage application state, and optimize performance under scale?`,
-        `For a ${roleConfig.title} position, robust testing and deployment are critical. What has been your approach to writing automated unit/integration tests and setting up CI/CD pipelines in your repositories?`,
+        `Welcome to your technical interview for the ${roleConfig.title} role! To start off, could you walk me through the architecture of your project "${primaryRepo}" and why you chose ${primaryLang}?`,
+        `That's clear. In "${secondaryRepo}", what was the most challenging technical bottleneck you faced and how did you resolve it?`,
+        `For a ${roleConfig.title} position, how do you approach automated testing and CI/CD deployment pipelines in your repositories?`,
         `Thank you for sharing your experience today! I have gathered all the insights needed for your evaluation. Please click 'End & Review' below to evaluate your final report and scorecard.`,
       ];
 
@@ -765,37 +766,80 @@ app.post("/api/v1/interview/:interviewId/evaluate", async (req, res) => {
       });
     }
 
+    const { proctoring } = (req.body || {}) as {
+      proctoring?: {
+        integrityScore?: number;
+        tabSwitchCount?: number;
+        pasteCount?: number;
+        fullscreenExitCount?: number;
+        violations?: Array<{ type: string; timestamp: string; message: string }>;
+      };
+    };
+
     const roleKey = interview.role || "Software Engineer";
     const roleConfig = (JOB_DESCRIPTIONS[roleKey] || JOB_DESCRIPTIONS["Software Engineer"])!;
 
-    const systemPrompt = `You are a Senior Technical Interviewer and Engineering Manager conducting a professional technical evaluation for the role of ${roleConfig.title}.
-Based on the candidate's GitHub repositories metadata and the transcript of their verbal technical interview, produce a comprehensive, structured performance scorecard.
-The evaluation and score weighting should reflect expectations for a candidate applying to a ${roleConfig.title} role (Job Description: ${roleConfig.jd}).
+    const proctoringInfo = proctoring
+      ? `\n\nProctoring & Integrity Metrics:
+- Integrity Score: ${proctoring.integrityScore ?? 100}%
+- Tab Switches / Focus Loss: ${proctoring.tabSwitchCount ?? 0}
+- Clipboard Paste Attempts: ${proctoring.pasteCount ?? 0}
+- Fullscreen Exits: ${proctoring.fullscreenExitCount ?? 0}
+- Total Violations Logged: ${proctoring.violations?.length ?? 0}`
+      : "";
 
-Provide evaluation across these exact 5 core factors:
-1. **GitHub Code Quality & Portfolio (20% weight)**: Analysis of repository cleanliness, stack modernism, commits, star rating, and documentation.
-2. **Technical Depth & Accuracy (30% weight)**: Verification of candidate's knowledge of principles, libraries, and frameworks relevant to a ${roleConfig.title}.
-3. **Problem-Solving & System Design (20% weight)**: Candidate's ability to explain architectural choices, project structures, state management, and performance optimizations.
-4. **Testing, Automation & CI/CD (15% weight)**: Focus on presence of test suites, linting/formatting pipelines, and CI/CD workflows.
-5. **Verbal Communication & Professionalism (15% weight)**: Clarity, structured technical explanations, and technical vocabulary usage during the session.
+    const userMessages = interview.conversation.filter((m: any) => m.type === "User");
+    const transcriptText = interview.conversation.length > 0
+      ? interview.conversation.map((m: any) => `${m.type === "User" ? "Candidate" : "Interviewer"}: ${m.message}`).join("\n")
+      : "[NO CANDIDATE RESPONSES RECORDED. Candidate ended or submitted the interview immediately without answering any questions.]";
+
+    const systemPrompt = `You are a Senior Technical Interviewer and Engineering Manager conducting an objective, professional technical evaluation for the role of ${roleConfig.title}.
+Based on the candidate's GitHub repositories metadata, proctoring integrity telemetry, and the actual transcript of their verbal technical interview, produce a comprehensive, structured performance scorecard.
+
+CRITICAL EVALUATION RULES (STRICT ANTI-HALLUCINATION & MATHEMATICAL RIGOR):
+1. **STRICT GROUND TRUTH**: Base your evaluation ONLY on actual answers present in the transcript. NEVER hallucinate, assume, or invent answers that the candidate did not give.
+2. **ZERO-RESPONSE / INCOMPLETE INTERVIEWS**: If the candidate provided NO responses or submitted immediately without answering (Candidate responses recorded: ${userMessages.length}):
+   - Clearly state in the feedback that the candidate did not answer the interview questions or participate in the Q&A session.
+   - Technical Depth (30% weight), Problem-Solving (20% weight), and Verbal Communication (15% weight) must receive 0 marks because no verbal answers were provided.
+   - Do NOT praise their verbal answers, do NOT say their communication was clear, and do NOT claim they explained technical concepts if they gave 0 answers.
+3. **PROCTORING INTEGRITY**: Reflect any logged violations (tab switches, copy/paste, fullscreen exits) accurately in the scorecard.
+4. **ROLE ALIGNMENT**: Evaluate against the Job Description: ${roleConfig.jd}.
+
+Provide evaluation across these exact 5 core factors (each scored 0 to 100):
+1. **github** (20% weight): Analysis of repository cleanliness, stack modernism, commits, star rating, and documentation.
+2. **technical** (30% weight): Verification of candidate's knowledge from actual transcript answers (0 marks if 0 answers provided).
+3. **problemSolving** (20% weight): Candidate's ability to explain architectural choices from actual transcript answers (0 marks if 0 answers provided).
+4. **testing** (15% weight): Focus on presence of test suites, linting/formatting pipelines, and CI/CD workflows in repositories.
+5. **communication** (15% weight): Clarity, technical vocabulary in actual answers, and proctoring session trust (0 marks if 0 answers provided).
 
 Format your response as a JSON object with this exact structure:
 {
-  "score": <number from 0 to 100 representing the weighted average of the above factors>,
+  "factors": {
+    "github": <0-100 score>,
+    "technical": <0-100 score>,
+    "problemSolving": <0-100 score>,
+    "testing": <0-100 score>,
+    "communication": <0-100 score>
+  },
+  "score": <number from 0 to 100 calculated as: Math.round(github*0.20 + technical*0.30 + problemSolving*0.20 + testing*0.15 + communication*0.15)>,
   "feedback": "<markdown formatted feedback report>"
 }
 
-In the markdown feedback report, structure it with clean header sections (using markdown '##' or '###') corresponding to each of the 5 factors above, followed by a '## Key Strengths' section, a '## Areas for Growth' section, and a '## Final Recommendation & Learning Path' section. Use bullet points and inline bolding for key terms to make the report highly readable.`;
+In the markdown feedback report, structure it with clean header sections (using markdown '##' or '###') corresponding to each of the 5 factors above (mentioning their individual score out of 100 and weighted point contribution), followed by a '## Key Strengths' section, a '## Areas for Growth' section, and a '## Final Recommendation & Learning Path' section. Use bullet points and inline bolding for key terms to make the report highly readable.`;
 
     const userPrompt = `
-GitHub Portfolio Metadata:
+Candidate GitHub Metadata:
 ${JSON.stringify(interview.githubMetadata, null, 2)}
 
-Interview Transcript:
-${interview.conversation.map((m: any) => `${m.type}: ${m.message}`).join("\n")}
+Candidate Resume Metadata:
+${interview.resumeMetadata ? (typeof interview.resumeMetadata === "string" ? interview.resumeMetadata : JSON.stringify(interview.resumeMetadata, null, 2)) : "None"}
+
+Interview Transcript (${userMessages.length} candidate answers recorded):
+${transcriptText}
+${proctoringInfo}
 `;
 
-    let result: { score: number; feedback: string } | null = null;
+    let result: { score: number; factors?: Record<string, number>; feedback: string } | null = null;
     const reply = await callLLM(systemPrompt, userPrompt, true);
     if (reply) {
       try {
@@ -816,11 +860,32 @@ ${interview.conversation.map((m: any) => `${m.type}: ${m.message}`).join("\n")}
       );
     }
 
+    // Mathematically verify and recalculate the composite score from factors if present
+    let finalScore = result.score;
+    let factors = result.factors;
+    if (factors) {
+      const gh = Math.min(Math.max(Number(factors.github) || 0, 0), 100);
+      const tech = Math.min(Math.max(Number(factors.technical) || 0, 0), 100);
+      const ps = Math.min(Math.max(Number(factors.problemSolving) || 0, 0), 100);
+      const test = Math.min(Math.max(Number(factors.testing) || 0, 0), 100);
+      const comm = Math.min(Math.max(Number(factors.communication) || 0, 0), 100);
+      finalScore = Math.round(gh * 0.20 + tech * 0.30 + ps * 0.20 + test * 0.15 + comm * 0.15);
+      factors = { github: gh, technical: tech, problemSolving: ps, testing: test, communication: comm };
+    } else {
+      finalScore = Math.min(Math.max(Number(finalScore) || 0, 0), 100);
+    }
+
+    // Embed factor telemetry in markdown if not already embedded
+    let finalFeedback = result.feedback || "";
+    if (factors && !finalFeedback.includes("<!-- EVAL_FACTORS:")) {
+      finalFeedback += `\n\n<!-- EVAL_FACTORS: ${JSON.stringify({ ...factors, total: finalScore })} -->`;
+    }
+
     const updatedInterview = await prisma.interview.update({
       where: { id: interviewId },
       data: {
-        score: result.score,
-        feedback: result.feedback,
+        score: finalScore,
+        feedback: finalFeedback,
         status: "Done",
       },
     });
@@ -851,13 +916,9 @@ ${interview.conversation.map((m: any) => `${m.type}: ${m.message}`).join("\n")}
     }
 
     const repoCount = repos.length || 0;
-    const msgCount = interview.conversation.length || 0;
+    const userMsgCount = interview.conversation.filter((m: any) => m.type === "User").length;
 
-    let score = 75;
-    if (repoCount > 10) score += 10;
-    else if (repoCount > 3) score += 5;
-    if (msgCount > 6) score += 5;
-    score = Math.min(score, 98);
+    const roleKey = interview.role || "Software Engineer";
 
     const languagesMap: Record<string, number> = {};
     repos.forEach((r: any) => {
@@ -872,52 +933,77 @@ ${interview.conversation.map((m: any) => `${m.type}: ${m.message}`).join("\n")}
         .map((entry) => entry[0])
         .join(", ") || "TypeScript, JavaScript";
 
-    const roleKey = interview.role || "Software Engineer";
+    // Compute explicit factor marks (0 to 100)
+    const githubFactor = repoCount > 10 ? 85 : repoCount > 3 ? 75 : repoCount > 0 ? 60 : 30;
+    const technicalFactor = userMsgCount > 5 ? 85 : userMsgCount > 2 ? 70 : userMsgCount > 0 ? 50 : 0;
+    const problemSolvingFactor = userMsgCount > 5 ? 80 : userMsgCount > 2 ? 65 : userMsgCount > 0 ? 45 : 0;
+    const testingFactor = repoCount > 3 ? 60 : 40;
+    const integrityTelemetry = (req.body?.proctoring?.integrityScore ?? 100);
+    const communicationFactor = userMsgCount > 0 ? Math.min(integrityTelemetry, 90) : 0;
+
+    const weightedScore = Math.round(
+      githubFactor * 0.20 +
+      technicalFactor * 0.30 +
+      problemSolvingFactor * 0.20 +
+      testingFactor * 0.15 +
+      communicationFactor * 0.15
+    );
+
+    const ghContrib = (githubFactor * 0.20).toFixed(1);
+    const techContrib = (technicalFactor * 0.30).toFixed(1);
+    const psContrib = (problemSolvingFactor * 0.20).toFixed(1);
+    const testContrib = (testingFactor * 0.15).toFixed(1);
+    const commContrib = (communicationFactor * 0.15).toFixed(1);
 
     const feedback = `## Talentra Evaluation Report (Local Assessment Engine)
 
 **Job Role Track**: ${roleKey}
 
-This scorecard was compiled based on your GitHub portfolio metadata and session transcript analysis.
+This scorecard was compiled based on your GitHub portfolio metadata, proctoring telemetry, and session transcript analysis.
 
-### 1. GitHub Code Quality & Portfolio (20% Weight)
+### 1. GitHub Code Quality & Portfolio (20% Weight) — Score: ${githubFactor}/100 (+${ghContrib} pts)
 - **Scraped Repositories**: Found **${repoCount}** public repositories on your profile.
 - **Portfolio Health**: Active repositories with structured commits and language tracking enabled.
 - **Primary Technology Stack**: Strong evidence of codebases leveraging **${topLanguages}**.
 
-### 2. Technical Depth & Accuracy (30% Weight)
-- **Framework Competency**: Demonstrated familiarity with frontend and backend concepts relevant to **${topLanguages}**.
-- **Accurate Terminology**: Used correct technical terms when explaining routing, server configuration, and layout logic.
+### 2. Technical Depth & Accuracy (30% Weight) — Score: ${technicalFactor}/100 (+${techContrib} pts)
+- **Evaluation Status**: ${userMsgCount > 0 ? `Demonstrated familiarity with concepts relevant to **${topLanguages}**.` : "**No verbal answers provided**. Candidate submitted immediately without answering the technical questions (0/100)."}
 
-### 3. Problem-Solving & System Design (20% Weight)
-- **Architectural Awareness**: Responded to architectural questions concerning modular patterns and connections (such as frontend-to-backend integration).
-- **Dialogue exchange**: Exchanged **${msgCount}** verbal/text blocks to solve system design and flow prompts.
+### 3. Problem-Solving & System Design (20% Weight) — Score: ${problemSolvingFactor}/100 (+${psContrib} pts)
+- **Dialogue exchange**: ${userMsgCount > 0 ? `Exchanged **${userMsgCount}** answers to solve system design and flow prompts.` : "**0 candidate answers recorded**. No architectural walkthrough was given (0/100)."}
 
-### 4. Testing, Automation & CI/CD (15% Weight)
+### 4. Testing, Automation & CI/CD (15% Weight) — Score: ${testingFactor}/100 (+${testContrib} pts)
 - **Test Suite Presence**: Basic testing layout noticed; however, explicitly configured test suites (Jest, Cypress, Playwright) should be expanded.
 - **Workflow Automation**: Recommending deployment pipelines (.github/workflows) to automate verification checks.
 
-### 5. Verbal Communication & Professionalism (15% Weight)
-- **Explanations**: Clear, focused responses during the sandbox simulation.
-- **Adaptability**: Gracefully handled fallback mock-mode verbal prompts.
+### 5. Verbal Communication, Professionalism & Integrity (15% Weight) — Score: ${communicationFactor}/100 (+${commContrib} pts)
+- **Participation & Integrity**: ${userMsgCount > 0 ? `Provided structured responses during the interview. Proctoring Trust Score: ${integrityTelemetry}%.` : `**Unanswered Session**: Candidate ended the session without speaking or typing answers (0/100). Proctoring Trust: ${integrityTelemetry}%.`}
 
 ## Key Strengths
 - **Modular Repositories**: Clear separation of concerns between backend logic and frontend templates.
 - **Language Focus**: Modern application patterns using **${topLanguages}**.
 
 ## Areas for Growth
+- **Interview Participation**: Complete all technical questions during the session to receive full scoring credit.
 - **Automation Pipeline**: Incorporate lint rules, automated formatting, and unit test workflows on commits.
-- **Interactive State**: Deepen familiarity with state sharing architectures.
 
 ## Final Recommendation & Learning Path
-- **Verdict**: **Strong Technical Profile** with solid hands-on development experience.
+- **Verdict**: ${userMsgCount > 0 ? "**Strong Technical Profile** with solid hands-on development experience." : "**Incomplete Session**: Please retake the interview and answer all questions for a complete evaluation."}
 - **Learning Path**: Focus on test-driven development (TDD) and containerization (Docker) to target senior positions.
-`;
+
+<!-- EVAL_FACTORS: ${JSON.stringify({
+  github: githubFactor,
+  technical: technicalFactor,
+  problemSolving: problemSolvingFactor,
+  testing: testingFactor,
+  communication: communicationFactor,
+  total: weightedScore
+})} -->`;
 
     const updatedInterview = await prisma.interview.update({
       where: { id: interviewId },
       data: {
-        score,
+        score: weightedScore,
         feedback,
         status: "Done",
       },
